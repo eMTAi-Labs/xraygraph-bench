@@ -1,0 +1,98 @@
+name: portable-reachability
+family: public-compare
+version: "1.0.0"
+description: >
+  A portable graph reachability benchmark suitable for fair comparison across
+  engines. Measures the cost of finding all nodes reachable within K hops from
+  a set of seed nodes. Uses standard Cypher syntax with no engine-specific
+  extensions. The workload scales with hop limit, seed cardinality, and graph
+  density, providing a controlled comparison surface for traversal engines.
+
+dataset:
+  name: synthetic-uniform-directed
+  type: synthetic
+  generator: uniform_directed_graph
+  generator_params:
+    node_count: 1000000
+    avg_out_degree: 8
+    properties:
+      id: integer
+      group: integer
+    group_count: 100
+    seed: 42
+
+query_template: >
+  MATCH (seed:Node)
+  WHERE seed.group = $seed_group
+  MATCH (seed)-[:EDGE*1..$hop_limit]->(reachable:Node)
+  RETURN DISTINCT reachable.id
+
+parameters:
+  node_count:
+    type: integer
+    default: 1000000
+    min: 10000
+    max: 10000000
+    description: Number of nodes in the graph.
+  avg_out_degree:
+    type: integer
+    default: 8
+    min: 2
+    max: 50
+    description: >
+      Average outgoing edge count per node. Controls graph density and
+      therefore the growth rate of the reachable set per hop.
+  hop_limit:
+    type: integer
+    default: 3
+    min: 1
+    max: 5
+    description: >
+      Maximum number of hops. Each additional hop multiplies the reachable
+      set by approximately avg_out_degree (minus already-visited nodes).
+  seed_group:
+    type: integer
+    default: 0
+    min: 0
+    max: 99
+    description: >
+      Group ID for seed node selection. With 100 groups and 1M nodes,
+      each group contains approximately 10,000 nodes.
+  seed_cardinality:
+    type: integer
+    default: 10000
+    min: 1
+    max: 100000
+    description: >
+      Approximate number of seed nodes (nodes in the selected group).
+      Higher seed cardinality tests whether the engine can batch or
+      parallelize traversal from multiple starting points.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 50000
+  expected_row_count_max: 900000
+  expected_columns: [id]
+  description: >
+    For 1M nodes with avg degree 8, 3-hop reachability from 10K seeds
+    should reach a substantial fraction of the graph. The exact count
+    depends on graph structure but should be between 50K and 900K distinct
+    nodes.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - compile_ms
+  - rows_in
+  - rows_out
+  - cache_hit
+
+tags:
+  - portable
+  - reachability
+  - traversal
+  - comparison
+  - standard-cypher
+
+warm_runs: 10
+timeout_seconds: 300

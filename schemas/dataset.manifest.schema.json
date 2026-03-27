@@ -1,0 +1,135 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/eMTAi-Labs/xraygraph-bench/schemas/dataset.manifest.schema.json",
+  "title": "Dataset Manifest",
+  "description": "Schema for xraygraph-bench dataset manifest files.",
+  "type": "object",
+  "required": [
+    "name",
+    "version",
+    "type",
+    "description",
+    "node_count",
+    "edge_count"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Dataset identifier."
+    },
+    "version": {
+      "type": "string",
+      "description": "Dataset version or generation seed."
+    },
+    "type": {
+      "type": "string",
+      "enum": ["synthetic", "code-graph", "provenance", "snap", "ogb", "external"],
+      "description": "Dataset category."
+    },
+    "description": {
+      "type": "string",
+      "description": "What this dataset represents."
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Download URL."
+        },
+        "checksum": {
+          "type": "string",
+          "description": "SHA-256 checksum of the downloaded file."
+        },
+        "license": {
+          "type": "string",
+          "description": "License of the source dataset."
+        },
+        "citation": {
+          "type": "string",
+          "description": "Citation for the source dataset."
+        }
+      },
+      "additionalProperties": false,
+      "description": "Source information for external datasets."
+    },
+    "generator": {
+      "type": "object",
+      "properties": {
+        "function": {
+          "type": "string",
+          "description": "Generator function name."
+        },
+        "seed": {
+          "type": "integer",
+          "description": "Random seed for deterministic generation."
+        },
+        "params": {
+          "type": "object",
+          "description": "Parameters passed to the generator.",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false,
+      "description": "Generator configuration for synthetic datasets."
+    },
+    "format": {
+      "type": "string",
+      "enum": ["csv", "tsv", "parquet", "edge-list", "adjacency-list", "cypher-script"],
+      "description": "File format of the dataset."
+    },
+    "node_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of nodes."
+    },
+    "edge_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of edges."
+    },
+    "labels": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Node labels present in the dataset."
+    },
+    "edge_types": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Edge/relationship types present in the dataset."
+    },
+    "properties": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Property data type."
+          },
+          "nullable": {
+            "type": "boolean",
+            "description": "Whether the property can be null."
+          },
+          "description": {
+            "type": "string",
+            "description": "What this property represents."
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "Node and edge properties with type information."
+    },
+    "size_bytes": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Approximate size of the dataset on disk in bytes."
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes about the dataset."
+    }
+  },
+  "additionalProperties": false
+}

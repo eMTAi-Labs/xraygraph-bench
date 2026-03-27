@@ -1,0 +1,38 @@
+{
+  "benchmark": "scan-filter-project",
+  "engine": "xraygraphdb",
+  "engine_version": "4.0.0",
+  "dataset": "synthetic-uniform-1m",
+  "dataset_version": "seed-42",
+  "query_shape": "MATCH (n:Node) WHERE n.value > $threshold RETURN n.id, n.value",
+  "cold_ms": 142.7,
+  "warm_ms": 18.3,
+  "compile_ms": 38.1,
+  "rows_in": 1000000,
+  "rows_out": 100234,
+  "segments": 3,
+  "breakers": [],
+  "buffer_repr": "columnar",
+  "cache_hit": false,
+  "fallback": false,
+  "deopt": false,
+  "correctness": {
+    "passed": true,
+    "detail": "Row count 100234 within expected range [99000, 101000] for selectivity 0.1 on 1M rows."
+  },
+  "parameters": {
+    "row_count": 1000000,
+    "selectivity": 0.1,
+    "nullable_ratio": 0.0,
+    "projection_width": 2,
+    "access_path": "non-covered"
+  },
+  "timestamp": "2026-03-27T14:30:00Z",
+  "host": {
+    "os": "Linux 6.1.0",
+    "cpu": "AMD EPYC 7763",
+    "cores": 64,
+    "memory_gb": 256.0
+  },
+  "notes": "Default engine configuration, no tuning applied."
+}
