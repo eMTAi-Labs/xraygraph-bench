@@ -17,7 +17,7 @@ import logging
 import time
 from typing import Any
 
-from .base import BaseAdapter
+from tools.xraybench.adapters.base import BaseAdapter
 from ..models import (
     CorrectnessResult,
     DatasetManifest,

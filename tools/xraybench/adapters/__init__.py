@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .base import BaseAdapter
+    from tools.xraybench.adapters.base import BaseAdapter
 
 # Lazy imports to avoid requiring all adapter dependencies
 _ADAPTER_REGISTRY: dict[str, str] = {

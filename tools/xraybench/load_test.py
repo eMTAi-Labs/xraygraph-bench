@@ -17,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any
 
-from .adapters.base import BaseAdapter
+from tools.xraybench.adapters.base import BaseAdapter
 from .models import BenchmarkResult, CorrectnessResult, HostInfo
 
 logger = logging.getLogger(__name__)
