@@ -1,0 +1,106 @@
+name: mixed-query-workload
+family: compile
+version: "1.0.0"
+description: >
+  Simulates a real workload with multiple distinct query shapes accessing the
+  same dataset. Tests plan cache behavior under query diversity: when the
+  number of distinct queries exceeds cache capacity, the engine must evict
+  and recompile. This benchmark rotates through a set of query templates,
+  measuring cache hit rates, recompilation frequency, and the impact of
+  cache churn on tail latency.
+
+dataset:
+  name: synthetic-uniform
+  type: synthetic
+  generator: uniform_nodes
+  generator_params:
+    node_count: 1000000
+    properties:
+      id: integer
+      value: float
+      category: string
+      timestamp: integer
+    seed: 42
+
+query_template: >
+  -- Template 1: point lookup
+  MATCH (n:Node {id: $id}) RETURN n.value;
+  -- Template 2: range scan
+  MATCH (n:Node) WHERE n.value > $lo AND n.value < $hi RETURN n.id, n.value;
+  -- Template 3: aggregation
+  MATCH (n:Node) WHERE n.category = $cat RETURN count(*), avg(n.value);
+  -- Template 4: sort
+  MATCH (n:Node) WHERE n.timestamp > $ts RETURN n.id ORDER BY n.value LIMIT 100;
+  -- Template 5: multi-predicate
+  MATCH (n:Node) WHERE n.value > $v AND n.category = $cat AND n.timestamp > $ts RETURN n.id
+
+parameters:
+  query_count:
+    type: integer
+    default: 5
+    min: 2
+    max: 50
+    description: >
+      Number of distinct query templates to rotate through. Small counts
+      (2-5) should fit in most plan caches. Large counts (20-50) will
+      cause cache eviction on engines with limited cache capacity.
+  total_executions:
+    type: integer
+    default: 1000
+    min: 100
+    max: 100000
+    description: Total number of query executions across all templates.
+  distribution:
+    type: string
+    default: uniform
+    enum: [uniform, zipf, round-robin]
+    description: >
+      How query templates are selected. Uniform selects randomly with
+      equal probability. Zipf concentrates on a few popular queries
+      (more realistic). Round-robin cycles through templates in order.
+  zipf_skew:
+    type: float
+    default: 1.0
+    min: 0.5
+    max: 2.0
+    description: >
+      Skew parameter for Zipf distribution. Higher values concentrate
+      more executions on fewer query templates. Only used when
+      distribution is "zipf".
+
+correctness_oracle:
+  type: structural
+  description: >
+    Each query template has its own correctness check. Template 1 should
+    return exactly 1 row. Templates 2-5 should return non-negative row
+    counts consistent with their predicates. The overall workload correctness
+    is the AND of all individual template checks.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - compile_ms
+  - cache_hit
+  - fallback
+  - deopt
+  - qps
+  - latency_p50
+  - latency_p95
+  - latency_p99
+
+tags:
+  - compile
+  - cache
+  - mixed-workload
+  - churn
+  - plan-cache
+  - diversity
+
+warm_runs: 1000
+timeout_seconds: 600
+
+notes: >
+  Key metrics: overall cache hit rate, per-template cache hit rate, p99
+  latency (which captures recompilation spikes), and the relationship
+  between query_count and cache hit rate. Engines with larger plan caches
+  should show higher hit rates at the same query_count.

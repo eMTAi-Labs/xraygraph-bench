@@ -1,0 +1,91 @@
+name: repeated-query-stability
+family: compile
+version: "1.0.0"
+description: >
+  Measures execution time variance across N identical runs of the same query.
+  Stable engines should show low variance after warmup. High variance
+  indicates non-deterministic behavior such as background compaction, GC
+  pauses, adaptive recompilation, or resource contention. This benchmark
+  reports per-run timing and statistical measures (stddev, coefficient of
+  variation) to quantify stability.
+
+dataset:
+  name: synthetic-uniform
+  type: synthetic
+  generator: uniform_nodes
+  generator_params:
+    node_count: 1000000
+    properties:
+      id: integer
+      value: float
+      category: string
+    seed: 42
+
+query_template: >
+  MATCH (n:Node)
+  WHERE n.value > 0.5
+  RETURN n.id, n.value, n.category
+
+parameters:
+  run_count:
+    type: integer
+    default: 100
+    min: 20
+    max: 10000
+    description: >
+      Number of identical query executions. More runs produce more stable
+      variance estimates. At least 100 runs recommended for meaningful
+      coefficient of variation.
+  warmup_runs:
+    type: integer
+    default: 5
+    min: 0
+    max: 50
+    description: >
+      Number of warmup runs to discard before recording. Warmup runs
+      ensure caches are populated and the engine has stabilized.
+  row_count:
+    type: integer
+    default: 1000000
+    min: 100000
+    max: 10000000
+    description: Number of nodes in the dataset.
+  include_per_run_times:
+    type: boolean
+    default: true
+    description: >
+      Whether to include per-run timings in the result. When true, the
+      result contains an array of individual run times for detailed
+      analysis.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 490000
+  expected_row_count_max: 510000
+  expected_columns: [id, value, category]
+  description: >
+    For 1M uniformly distributed values filtered at 0.5 threshold,
+    expect approximately 500K rows. Every run must produce the same
+    count; variance in row count indicates a correctness issue.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - compile_ms
+  - cache_hit
+
+tags:
+  - compile
+  - stability
+  - variance
+  - determinism
+  - repeated
+
+warm_runs: 100
+timeout_seconds: 600
+
+notes: >
+  Key derived metrics: standard deviation, coefficient of variation (CV),
+  min/max ratio. A CV below 0.05 (5%) indicates stable execution. A CV
+  above 0.20 (20%) suggests significant non-determinism that should be
+  investigated (GC pressure, background tasks, adaptive optimization).

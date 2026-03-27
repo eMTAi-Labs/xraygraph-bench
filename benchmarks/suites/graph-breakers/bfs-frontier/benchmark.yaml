@@ -1,0 +1,95 @@
+name: bfs-frontier
+family: graph-breakers
+version: "1.0.0"
+description: >
+  Measures breadth-first traversal performance focusing on frontier growth
+  and iteration cost. BFS is fundamental to graph workloads but its memory
+  and compute cost grow with the frontier size at each level. On graphs with
+  irregular degree distribution, frontier growth can be highly unpredictable.
+  This benchmark measures per-level cost, peak memory pressure, and total
+  traversal time as a function of depth and graph structure.
+
+dataset:
+  name: synthetic-power-law
+  type: synthetic
+  generator: power_law_graph
+  generator_params:
+    node_count: 1000000
+    edge_count: 10000000
+    power_law_exponent: 2.1
+    seed: 42
+
+query_template: >
+  MATCH path = (start:Node {id: $seed_id})-[:EDGE*1..$max_depth]->(target:Node)
+  RETURN DISTINCT target.id
+
+parameters:
+  node_count:
+    type: integer
+    default: 1000000
+    min: 10000
+    max: 10000000
+    description: Number of nodes in the graph.
+  edge_count:
+    type: integer
+    default: 10000000
+    min: 100000
+    max: 100000000
+    description: Number of edges in the graph.
+  max_depth:
+    type: integer
+    default: 3
+    min: 1
+    max: 6
+    description: >
+      Maximum BFS depth. Each additional level can multiply the frontier
+      by the average degree. Depth 6 on a graph with average degree 10
+      can produce up to 10^6 frontier nodes.
+  power_law_exponent:
+    type: float
+    default: 2.1
+    min: 1.5
+    max: 3.0
+    description: >
+      Power-law exponent for degree distribution. Lower values produce
+      more extreme hubs. 2.1 approximates many real social and web graphs.
+  seed_node_strategy:
+    type: string
+    default: high-degree
+    enum: [high-degree, random, low-degree]
+    description: >
+      How to select the BFS starting node. High-degree seeds produce
+      larger frontiers immediately; random seeds test average-case behavior;
+      low-degree seeds test the opposite extreme.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 1000
+  expected_row_count_max: 500000
+  expected_columns: [id]
+  description: >
+    Reachable node count depends heavily on seed node and graph structure.
+    For a power-law graph with 1M nodes, 10M edges, and depth 3 from a
+    high-degree seed, expect between 1K and 500K distinct reachable nodes.
+    The wide range reflects structural variance in power-law graphs.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - compile_ms
+  - rows_in
+  - rows_out
+  - segments
+  - breakers
+  - cache_hit
+
+tags:
+  - graph
+  - bfs
+  - traversal
+  - frontier
+  - memory-pressure
+  - power-law
+
+warm_runs: 5
+timeout_seconds: 300

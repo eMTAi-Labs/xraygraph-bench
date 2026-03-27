@@ -1,0 +1,109 @@
+name: multi-hop-traversal
+family: graph-breakers
+version: "1.0.0"
+description: >
+  Measures variable-length path traversal (1 to N hops) on graphs with
+  varying density. Multi-hop traversal is the source of exponential fan-out
+  in graph queries: each additional hop multiplies the intermediate result
+  set by the average degree at the frontier. This benchmark tracks how
+  traversal cost scales with hop count and exposes engines that handle
+  intermediate result explosion gracefully vs those that do not.
+
+dataset:
+  name: synthetic-community
+  type: synthetic
+  generator: community_graph
+  generator_params:
+    community_count: 100
+    nodes_per_community: 5000
+    intra_edge_density: 0.01
+    inter_edge_density: 0.0001
+    seed: 42
+
+query_template: >
+  MATCH (start:Node {id: $start_id})-[:EDGE*$min_hops..$max_hops]->(end:Node)
+  RETURN DISTINCT end.id, end.community
+
+parameters:
+  total_nodes:
+    type: integer
+    default: 500000
+    min: 50000
+    max: 5000000
+    description: Total nodes across all communities.
+  community_count:
+    type: integer
+    default: 100
+    min: 10
+    max: 1000
+    description: Number of communities in the graph.
+  min_hops:
+    type: integer
+    default: 1
+    min: 1
+    max: 3
+    description: Minimum path length.
+  max_hops:
+    type: integer
+    default: 3
+    min: 1
+    max: 5
+    description: >
+      Maximum path length. The gap between min_hops and max_hops determines
+      how many traversal levels are explored. Setting max_hops to 5 on a
+      dense graph can produce massive intermediate results.
+  intra_edge_density:
+    type: float
+    default: 0.01
+    min: 0.001
+    max: 0.1
+    description: >
+      Edge density within each community. Higher density means more paths
+      within communities and faster frontier growth.
+  inter_edge_density:
+    type: float
+    default: 0.0001
+    min: 0.00001
+    max: 0.01
+    description: >
+      Edge density between communities. Controls how quickly traversal
+      crosses community boundaries.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 100
+  expected_row_count_max: 200000
+  expected_columns: [id, community]
+  description: >
+    Reachable node count depends on start node position, community structure,
+    and hop count. For a 500K-node graph with 100 communities, 3-hop
+    traversal from an intra-community node should reach most of the starting
+    community and some neighbors.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - compile_ms
+  - rows_in
+  - rows_out
+  - segments
+  - breakers
+  - cache_hit
+  - fallback
+
+tags:
+  - graph
+  - multi-hop
+  - traversal
+  - variable-length
+  - fan-out
+  - community
+
+warm_runs: 5
+timeout_seconds: 300
+
+notes: >
+  This benchmark is particularly sensitive to the engine's strategy for
+  handling variable-length paths. Engines that expand all paths eagerly
+  will consume more memory than those that use iterative deepening or
+  frontier-based expansion with deduplication.

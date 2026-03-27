@@ -1,0 +1,97 @@
+name: cold-vs-warm
+family: compile
+version: "1.0.0"
+description: >
+  Explicitly separates first-run compilation cost from cached execution
+  performance. This is the most important compile-family benchmark because
+  it directly measures the trade-off every compiled engine makes: higher
+  first-run latency in exchange for faster subsequent runs. The benchmark
+  runs a query once cold (after cache clearing), then N times warm, and
+  reports both timings alongside the compilation component if the engine
+  exposes it.
+
+dataset:
+  name: synthetic-uniform
+  type: synthetic
+  generator: uniform_nodes
+  generator_params:
+    node_count: 1000000
+    properties:
+      id: integer
+      value: float
+      category: string
+    seed: 42
+
+query_template: >
+  MATCH (n:Node)
+  WHERE n.value > $threshold AND n.category = $category
+  RETURN n.id, n.value
+  ORDER BY n.value DESC
+  LIMIT 1000
+
+parameters:
+  row_count:
+    type: integer
+    default: 1000000
+    min: 100000
+    max: 10000000
+    description: Number of nodes in the dataset.
+  warm_repeats:
+    type: integer
+    default: 50
+    min: 10
+    max: 1000
+    description: >
+      Number of warm repetitions. More repetitions give a more stable
+      warm average and better amortization measurement.
+  cache_clear_method:
+    type: string
+    default: full
+    enum: [full, plan-only, none]
+    description: >
+      What to clear before the cold run. "full" clears all caches
+      including buffer pool; "plan-only" clears only the query plan cache;
+      "none" measures with whatever state exists (useful for measuring
+      cache warmup from a running system).
+  query_complexity:
+    type: string
+    default: moderate
+    enum: [simple, moderate, complex]
+    description: >
+      Query complexity level. Simple uses a single filter; moderate adds
+      sort and limit; complex adds aggregation and subquery. Higher
+      complexity increases the compilation gap between cold and warm.
+
+correctness_oracle:
+  type: row_count
+  expected_row_count: 1000
+  expected_columns: [id, value]
+  description: >
+    With LIMIT 1000, exactly 1000 rows should be returned regardless
+    of run temperature. Results should be sorted by value descending.
+    Both cold and warm runs must produce identical results.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - compile_ms
+  - cache_hit
+  - fallback
+  - deopt
+
+tags:
+  - compile
+  - cold-warm
+  - cache
+  - compilation
+  - amortization
+
+warm_runs: 50
+timeout_seconds: 120
+
+notes: >
+  The cold-to-warm ratio is the key metric here. A ratio of 1.0 means the
+  engine does not benefit from caching. A ratio of 10x or higher indicates
+  significant compilation overhead that amortizes well. Adapters that can
+  report compile_ms separately should do so to distinguish compilation from
+  other first-run overhead (buffer pool warming, metadata loading).

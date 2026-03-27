@@ -1,0 +1,65 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+*.whl
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Benchmark results (generated, not committed)
+results/
+*.result.json
+
+# Dataset files (downloaded, not committed)
+datasets/**/*.csv
+datasets/**/*.tsv
+datasets/**/*.parquet
+datasets/**/*.txt.gz
+datasets/**/*.edge
+datasets/**/*.bin
+datasets/**/*.npz
+!datasets/**/README.md
+!datasets/**/manifest.yaml
+
+# SNAP dataset downloads
+datasets/snap/data/
+datasets/snap/*.txt.gz
+
+# OGB dataset downloads
+datasets/ogb/data/
+datasets/ogb/*.zip
+
+# Logs
+*.log
+logs/
+
+# Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# mypy
+.mypy_cache/
+
+# Jupyter
+.ipynb_checkpoints/

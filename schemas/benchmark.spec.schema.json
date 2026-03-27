@@ -1,0 +1,188 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/eMTAi-Labs/xraygraph-bench/schemas/benchmark.spec.schema.json",
+  "title": "Benchmark Specification",
+  "description": "Schema for xraygraph-bench benchmark definition files.",
+  "type": "object",
+  "required": [
+    "name",
+    "family",
+    "version",
+    "description",
+    "dataset",
+    "query_template",
+    "parameters",
+    "correctness_oracle",
+    "metrics"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "Unique benchmark identifier using lowercase and hyphens."
+    },
+    "family": {
+      "type": "string",
+      "enum": ["core-executor", "graph-breakers", "end-to-end", "public-compare", "compile"],
+      "description": "Benchmark family this spec belongs to."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version of this benchmark spec."
+    },
+    "description": {
+      "type": "string",
+      "minLength": 20,
+      "description": "What this benchmark measures and why it matters."
+    },
+    "dataset": {
+      "type": "object",
+      "required": ["name", "type"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Dataset identifier."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["synthetic", "code-graph", "provenance", "snap", "ogb", "external"],
+          "description": "Dataset category."
+        },
+        "generator": {
+          "type": "string",
+          "description": "Generator function name for synthetic datasets."
+        },
+        "generator_params": {
+          "type": "object",
+          "description": "Parameters passed to the dataset generator.",
+          "additionalProperties": true
+        },
+        "source_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Download URL for external datasets."
+        }
+      },
+      "additionalProperties": false,
+      "description": "Dataset required for this benchmark."
+    },
+    "query_template": {
+      "type": "string",
+      "description": "Cypher query template with $param placeholders. Adapters may translate to engine-specific syntax."
+    },
+    "parameters": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["type", "default", "description"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["integer", "float", "string", "boolean"],
+            "description": "Parameter data type."
+          },
+          "default": {
+            "description": "Default value for this parameter."
+          },
+          "min": {
+            "description": "Minimum value (numeric parameters)."
+          },
+          "max": {
+            "description": "Maximum value (numeric parameters)."
+          },
+          "enum": {
+            "type": "array",
+            "description": "Allowed values (string parameters)."
+          },
+          "description": {
+            "type": "string",
+            "description": "What this parameter controls."
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "Tunable benchmark parameters with defaults and ranges."
+    },
+    "correctness_oracle": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["row_count", "exact_match", "checksum", "row_count_range", "structural"],
+          "description": "Type of correctness check."
+        },
+        "expected_row_count": {
+          "type": "integer",
+          "description": "Exact expected number of result rows."
+        },
+        "expected_row_count_min": {
+          "type": "integer",
+          "description": "Minimum expected row count (for range checks)."
+        },
+        "expected_row_count_max": {
+          "type": "integer",
+          "description": "Maximum expected row count (for range checks)."
+        },
+        "expected_columns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Expected column names in result."
+        },
+        "checksum_algorithm": {
+          "type": "string",
+          "description": "Algorithm for result checksum (e.g., sha256)."
+        },
+        "expected_checksum": {
+          "type": "string",
+          "description": "Expected checksum value."
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of what constitutes a correct result."
+        }
+      },
+      "additionalProperties": false,
+      "description": "How to verify the result is correct."
+    },
+    "metrics": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "cold_ms", "warm_ms", "compile_ms",
+          "rows_in", "rows_out",
+          "segments", "breakers",
+          "cache_hit", "fallback", "deopt",
+          "qps", "latency_p50", "latency_p95", "latency_p99",
+          "error_rate", "concurrency"
+        ]
+      },
+      "minItems": 1,
+      "description": "Which result metrics this benchmark requires."
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Tags for filtering and categorization."
+    },
+    "warm_runs": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 10,
+      "description": "Number of warm runs to average."
+    },
+    "timeout_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 300,
+      "description": "Maximum allowed execution time per query in seconds."
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes about the benchmark."
+    }
+  },
+  "additionalProperties": false
+}

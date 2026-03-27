@@ -1,0 +1,96 @@
+name: expand-high-fanout
+family: graph-breakers
+version: "1.0.0"
+description: >
+  Stresses 1-hop edge expansion on high-fanout hub nodes. In real graphs,
+  degree distribution follows a power law: a small number of nodes have
+  extremely high connectivity. Expanding these nodes produces large
+  intermediate results that stress materialization, memory allocation, and
+  downstream operator throughput. This benchmark measures expansion time,
+  output cardinality, and the cost of post-expand operations.
+
+dataset:
+  name: synthetic-hub
+  type: synthetic
+  generator: hub_graph
+  generator_params:
+    hub_count: 100
+    spoke_count_per_hub: 100000
+    spoke_properties:
+      id: integer
+      weight: float
+      label: string
+    edge_type: CONNECTED_TO
+    seed: 42
+
+query_template: >
+  MATCH (hub:Hub)-[r:CONNECTED_TO]->(spoke:Spoke)
+  WHERE hub.id = $hub_id
+  RETURN spoke.id, spoke.weight, r.weight
+
+parameters:
+  hub_fanout:
+    type: integer
+    default: 100000
+    min: 1000
+    max: 1000000
+    description: >
+      Number of edges per hub node. Controls the cardinality explosion
+      on expansion. At 1M edges, the engine must handle 1M intermediate
+      rows from a single MATCH pattern.
+  hub_count:
+    type: integer
+    default: 100
+    min: 1
+    max: 10000
+    description: Number of hub nodes in the dataset.
+  edge_type:
+    type: string
+    default: CONNECTED_TO
+    enum: [CONNECTED_TO, CALLS, DEPENDS_ON, LINKS_TO]
+    description: Relationship type for hub-spoke edges.
+  downstream_aggregation:
+    type: boolean
+    default: false
+    description: >
+      When true, adds aggregation after expansion (sum weight, count).
+      Tests whether the engine can push aggregation closer to the scan
+      or must materialize all expanded rows first.
+  output_limit:
+    type: integer
+    default: 0
+    min: 0
+    max: 1000000
+    description: >
+      When > 0, adds LIMIT to the query. Tests whether the engine can
+      short-circuit expansion when only partial results are needed.
+
+correctness_oracle:
+  type: row_count
+  expected_row_count: 100000
+  expected_columns: [id, weight, weight]
+  description: >
+    For a hub with 100,000 spokes and no LIMIT, expect exactly 100,000
+    result rows. Each row should have non-null spoke.id and spoke.weight.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - compile_ms
+  - rows_in
+  - rows_out
+  - segments
+  - breakers
+  - cache_hit
+  - fallback
+
+tags:
+  - graph
+  - expansion
+  - fanout
+  - hub
+  - materialization
+  - traversal
+
+warm_runs: 10
+timeout_seconds: 300

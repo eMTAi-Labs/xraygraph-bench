@@ -1,0 +1,185 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/eMTAi-Labs/xraygraph-bench/schemas/result.schema.json",
+  "title": "Benchmark Result",
+  "description": "Schema for xraygraph-bench benchmark result records.",
+  "type": "object",
+  "required": [
+    "benchmark",
+    "engine",
+    "engine_version",
+    "dataset",
+    "dataset_version",
+    "cold_ms",
+    "warm_ms",
+    "rows_out",
+    "correctness",
+    "timestamp"
+  ],
+  "properties": {
+    "benchmark": {
+      "type": "string",
+      "description": "Benchmark name matching the spec identifier."
+    },
+    "engine": {
+      "type": "string",
+      "description": "Engine identifier (e.g., xraygraphdb, memgraph, neo4j)."
+    },
+    "engine_version": {
+      "type": "string",
+      "description": "Exact engine version string."
+    },
+    "dataset": {
+      "type": "string",
+      "description": "Dataset name used for this run."
+    },
+    "dataset_version": {
+      "type": "string",
+      "description": "Dataset version or generation seed."
+    },
+    "query_shape": {
+      "type": "string",
+      "description": "Canonical query shape or template identifier."
+    },
+    "cold_ms": {
+      "type": "number",
+      "minimum": 0,
+      "description": "First-run latency in milliseconds, including any compilation."
+    },
+    "warm_ms": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Average latency of warm (cached) runs in milliseconds."
+    },
+    "compile_ms": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "description": "Compilation time in milliseconds if separable, null otherwise."
+    },
+    "rows_in": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of input rows/nodes scanned."
+    },
+    "rows_out": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of result rows returned."
+    },
+    "segments": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Number of execution segments or pipeline stages."
+    },
+    "breakers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Operators that force full materialization (e.g., Sort, Aggregate)."
+    },
+    "buffer_repr": {
+      "type": ["string", "null"],
+      "description": "Buffer representation format if applicable."
+    },
+    "cache_hit": {
+      "type": "boolean",
+      "description": "Whether the query plan was served from plan cache."
+    },
+    "fallback": {
+      "type": "boolean",
+      "description": "Whether the engine fell back to an alternate execution path."
+    },
+    "deopt": {
+      "type": "boolean",
+      "description": "Whether a compiled plan was deoptimized during execution."
+    },
+    "correctness": {
+      "type": "object",
+      "required": ["passed"],
+      "properties": {
+        "passed": {
+          "type": "boolean",
+          "description": "Whether the result passed correctness validation."
+        },
+        "detail": {
+          "type": "string",
+          "description": "Correctness validation detail or failure reason."
+        }
+      },
+      "additionalProperties": false,
+      "description": "Correctness validation result."
+    },
+    "concurrency": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Number of concurrent clients (load tests)."
+    },
+    "qps": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Queries per second sustained (load tests)."
+    },
+    "latency_p50": {
+      "type": "number",
+      "minimum": 0,
+      "description": "50th percentile latency in milliseconds."
+    },
+    "latency_p95": {
+      "type": "number",
+      "minimum": 0,
+      "description": "95th percentile latency in milliseconds."
+    },
+    "latency_p99": {
+      "type": "number",
+      "minimum": 0,
+      "description": "99th percentile latency in milliseconds."
+    },
+    "error_rate": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Fraction of queries that errored (0.0 to 1.0)."
+    },
+    "parameters": {
+      "type": "object",
+      "description": "Benchmark parameter values used for this run.",
+      "additionalProperties": true
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of run completion."
+    },
+    "host": {
+      "type": "object",
+      "properties": {
+        "os": {
+          "type": "string",
+          "description": "Operating system and version."
+        },
+        "cpu": {
+          "type": "string",
+          "description": "CPU model."
+        },
+        "cores": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of CPU cores."
+        },
+        "memory_gb": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Total system memory in GB."
+        }
+      },
+      "additionalProperties": false,
+      "description": "Host environment details."
+    },
+    "notes": {
+      "type": "string",
+      "description": "Free-form notes about the run."
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,96 @@
+name: Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate-schemas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install jsonschema pyyaml
+
+      - name: Validate result schema is valid JSON Schema
+        run: |
+          python -c "
+          import json, jsonschema
+          with open('schemas/result.schema.json') as f:
+              schema = json.load(f)
+          jsonschema.Draft7Validator.check_schema(schema)
+          print('result.schema.json is valid')
+          "
+
+      - name: Validate benchmark spec schema is valid JSON Schema
+        run: |
+          python -c "
+          import json, jsonschema
+          with open('schemas/benchmark.spec.schema.json') as f:
+              schema = json.load(f)
+          jsonschema.Draft7Validator.check_schema(schema)
+          print('benchmark.spec.schema.json is valid')
+          "
+
+      - name: Validate dataset manifest schema is valid JSON Schema
+        run: |
+          python -c "
+          import json, jsonschema
+          with open('schemas/dataset.manifest.schema.json') as f:
+              schema = json.load(f)
+          jsonschema.Draft7Validator.check_schema(schema)
+          print('dataset.manifest.schema.json is valid')
+          "
+
+      - name: Validate sample result against schema
+        run: |
+          python -c "
+          import json, jsonschema
+          with open('schemas/result.schema.json') as f:
+              schema = json.load(f)
+          with open('examples/sample-result.json') as f:
+              data = json.load(f)
+          jsonschema.validate(data, schema)
+          print('sample-result.json validates against schema')
+          "
+
+      - name: Validate sample benchmark spec against schema
+        run: |
+          python -c "
+          import json, yaml, jsonschema
+          with open('schemas/benchmark.spec.schema.json') as f:
+              schema = json.load(f)
+          with open('examples/sample-benchmark.yaml') as f:
+              data = yaml.safe_load(f)
+          jsonschema.validate(data, schema)
+          print('sample-benchmark.yaml validates against schema')
+          "
+
+      - name: Validate all benchmark specs
+        run: |
+          python -c "
+          import json, yaml, jsonschema, glob, sys
+          with open('schemas/benchmark.spec.schema.json') as f:
+              schema = json.load(f)
+          errors = 0
+          for path in sorted(glob.glob('benchmarks/suites/**/benchmark.yaml', recursive=True)):
+              try:
+                  with open(path) as f:
+                      data = yaml.safe_load(f)
+                  jsonschema.validate(data, schema)
+                  print(f'  OK: {path}')
+              except Exception as e:
+                  print(f'  FAIL: {path}: {e}')
+                  errors += 1
+          if errors:
+              print(f'{errors} spec(s) failed validation')
+              sys.exit(1)
+          print('All benchmark specs valid')
+          "

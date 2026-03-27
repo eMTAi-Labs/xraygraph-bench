@@ -1,0 +1,111 @@
+name: code-dependency-analysis
+family: end-to-end
+version: "1.0.0"
+description: >
+  Simulates code intelligence dependency analysis on a graph of functions,
+  files, classes, and their relationships (calls, imports, contains). This
+  workload is characteristic of code intelligence platforms that need to
+  resolve transitive dependencies, identify import chains, and analyze
+  call graphs. The benchmark measures traversal across heterogeneous node
+  types and edge types, with varying density across the graph.
+
+dataset:
+  name: synthetic-code-graph
+  type: code-graph
+  generator: code_graph
+  generator_params:
+    file_count: 10000
+    class_count: 25000
+    function_count: 200000
+    avg_calls_per_function: 4
+    avg_imports_per_file: 8
+    properties:
+      function:
+        id: integer
+        name: string
+        complexity: integer
+        lines: integer
+      file:
+        id: integer
+        path: string
+        language: string
+      class:
+        id: integer
+        name: string
+        file_id: integer
+    seed: 42
+
+query_template: >
+  MATCH (f:Function {id: $function_id})-[:CALLS*1..$depth]->(dep:Function)
+  OPTIONAL MATCH (dep)-[:DEFINED_IN]->(file:File)
+  RETURN DISTINCT dep.id, dep.name, dep.complexity, file.path
+
+parameters:
+  function_count:
+    type: integer
+    default: 200000
+    min: 10000
+    max: 2000000
+    description: Number of function nodes in the code graph.
+  depth:
+    type: integer
+    default: 3
+    min: 1
+    max: 5
+    description: >
+      Maximum call chain depth. Depth 1 gives direct callees; depth 3
+      gives transitive dependencies to 3 levels; depth 5 can produce
+      very large result sets on well-connected code bases.
+  avg_calls_per_function:
+    type: float
+    default: 4.0
+    min: 1.0
+    max: 20.0
+    description: >
+      Average number of outgoing call edges per function. Higher values
+      produce denser call graphs with faster fan-out.
+  include_file_resolution:
+    type: boolean
+    default: true
+    description: >
+      Whether to resolve the file containing each dependency. Adds an
+      OPTIONAL MATCH that tests the engine's join behavior.
+  filter_by_complexity:
+    type: boolean
+    default: false
+    description: >
+      When true, adds WHERE dep.complexity > $threshold to filter
+      high-complexity dependencies only.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 50
+  expected_row_count_max: 100000
+  expected_columns: [id, name, complexity, path]
+  description: >
+    For a function with average connectivity in a 200K-function graph with
+    avg degree 4, 3-hop traversal should reach between 50 and 100K distinct
+    functions. The upper bound is loose because code call graphs tend to
+    have long-tailed degree distributions.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - compile_ms
+  - rows_in
+  - rows_out
+  - segments
+  - breakers
+  - cache_hit
+  - fallback
+
+tags:
+  - end-to-end
+  - code-graph
+  - dependency
+  - call-graph
+  - transitive
+  - heterogeneous
+
+warm_runs: 10
+timeout_seconds: 300
