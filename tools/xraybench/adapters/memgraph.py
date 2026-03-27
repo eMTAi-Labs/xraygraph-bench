@@ -72,6 +72,9 @@ class MemgraphAdapter(BaseAdapter):
             self._driver = None
 
     def load_dataset(self, dataset: DatasetSpec | DatasetManifest) -> LoadResult:
+        if not self._driver:
+            raise RuntimeError("Not connected. Call connect() first.")
+
         start = time.perf_counter()
 
         # Dataset loading is generator/format specific.
