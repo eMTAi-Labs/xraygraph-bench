@@ -13,7 +13,7 @@ import logging
 import statistics
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -257,7 +257,6 @@ class LoadTester:
             total_queries += step_total
             current_clients += config.ramp_step
 
-        elapsed = sum(ts.get("qps", 0) for ts in time_series)
         overall_qps = total_queries / (len(time_series) * config.ramp_step_duration) if time_series else 0
 
         return LoadTestResult(

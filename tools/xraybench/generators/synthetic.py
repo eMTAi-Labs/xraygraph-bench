@@ -9,7 +9,6 @@ parameter to select alternative formats.
 
 from __future__ import annotations
 
-import math
 import random
 from typing import Any, Iterator
 
@@ -69,7 +68,7 @@ def uniform_nodes(
 def power_law_graph(
     node_count: int = 1_000_000,
     edge_count: int = 10_000_000,
-    power_law_exponent: float = 2.1,
+    power_law_exponent: float = 2.1,  # noqa: ARG001
     seed: int = 42,
     batch_size: int = 1000,
 ) -> Iterator[str]:
@@ -100,7 +99,6 @@ def power_law_graph(
     degree = [1] * node_count  # Initialize all with degree 1
     total_degree = node_count
 
-    edges_generated = 0
     batch: list[tuple[int, int]] = []
 
     for _ in range(edge_count):

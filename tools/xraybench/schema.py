@@ -8,12 +8,11 @@ from typing import Any
 
 try:
     import jsonschema
-    from jsonschema import ValidationError
 
     HAS_JSONSCHEMA = True
 except ImportError:
+    jsonschema = None  # type: ignore[assignment]
     HAS_JSONSCHEMA = False
-    ValidationError = Exception  # type: ignore[misc, assignment]
 
 SCHEMA_DIR = Path(__file__).resolve().parent.parent.parent / "schemas"
 

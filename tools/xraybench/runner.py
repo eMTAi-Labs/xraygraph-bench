@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-import time
 from pathlib import Path
 from typing import Any
 
@@ -79,7 +78,7 @@ class BenchmarkRunner:
             # Warm runs
             warm_times: list[float] = []
             logger.info("Executing %d warm runs...", spec.warm_runs)
-            for i in range(spec.warm_runs):
+            for _ in range(spec.warm_runs):
                 warm_result = self.adapter.execute(query, params)
                 warm_times.append(warm_result.wall_ms)
 
