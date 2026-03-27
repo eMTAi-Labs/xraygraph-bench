@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .loader import discover_benchmarks, load_benchmark_spec
+from .loader import discover_benchmarks
 from .schema import validate_file
 
 
@@ -193,8 +193,8 @@ def _cmd_validate(args: argparse.Namespace) -> int:
 
 def _cmd_run(args: argparse.Namespace) -> int:
     """Run a benchmark."""
-    from .adapters import get_adapter
-    from .runner import BenchmarkRunner
+    from tools.xraybench.adapters import get_adapter
+    from tools.xraybench.runner import BenchmarkRunner
 
     # Resolve adapter
     try:
@@ -238,8 +238,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
 
 def _cmd_load_test(args: argparse.Namespace) -> int:
     """Run a load test."""
-    from .adapters import get_adapter
-    from .load_test import LoadTestConfig, LoadTester
+    from tools.xraybench.adapters import get_adapter
+    from tools.xraybench.load_test import LoadTestConfig, LoadTester
 
     try:
         adapter_cls = get_adapter(args.engine)

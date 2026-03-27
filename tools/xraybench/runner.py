@@ -7,9 +7,9 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from .adapters.base import BaseAdapter
+from tools.xraybench.adapters.base import BaseAdapter
 from .loader import load_benchmark_spec
-from .models import BenchmarkResult, CorrectnessResult, HostInfo
+from .models import BenchmarkResult, HostInfo
 from .schema import validate
 
 logger = logging.getLogger(__name__)
