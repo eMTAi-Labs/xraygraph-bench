@@ -1,0 +1,155 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  rust-tests:
+    name: Rust Tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('rust/Cargo.lock', 'rust/**/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Run Rust tests
+        working-directory: rust
+        run: cargo test --workspace --release
+
+      - name: Check Rust formatting
+        working-directory: rust
+        run: cargo fmt --all -- --check
+
+      - name: Run Clippy lints
+        working-directory: rust
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+  python-tests:
+    name: Python Tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.12"]
+    needs: []  # Run in parallel with rust-tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt', 'pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Cache cargo registry and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+          key: ${{ runner.os }}-cargo-py-${{ hashFiles('rust/Cargo.lock', 'rust/**/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-py-
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[dev]"
+          pip install maturin
+          pip install 'fastapi[standard]'
+
+      - name: Build and install Rust extension
+        working-directory: rust/xraybench-py
+        run: maturin develop --release
+
+      - name: Run Python tests
+        run: python -m pytest tests/ -v --tb=short
+
+  benchmark-spec-validation:
+    name: Benchmark Spec Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install jsonschema pyyaml
+
+      - name: Validate all JSON schemas
+        run: |
+          python -c "
+          import json, jsonschema
+          for schema_file in ['result', 'benchmark.spec', 'dataset.manifest']:
+              with open(f'schemas/{schema_file}.schema.json') as f:
+                  schema = json.load(f)
+              jsonschema.Draft7Validator.check_schema(schema)
+              print(f'{schema_file}.schema.json: valid')
+          "
+
+      - name: Validate all benchmark specs against schema
+        run: |
+          python -c "
+          import json, yaml, jsonschema, glob, sys
+          with open('schemas/benchmark.spec.schema.json') as f:
+              schema = json.load(f)
+          errors = 0
+          for path in sorted(glob.glob('benchmarks/suites/**/benchmark.yaml', recursive=True)):
+              try:
+                  with open(path) as f:
+                      data = yaml.safe_load(f)
+                  jsonschema.validate(data, schema)
+                  print(f'  OK: {path}')
+              except Exception as e:
+                  print(f'  FAIL: {path}: {e}')
+                  errors += 1
+          if errors:
+              sys.exit(1)
+          print(f'All {13 - errors} specs valid')
+          "
+
+      - name: Validate sample result
+        run: |
+          python -c "
+          import json, jsonschema
+          with open('schemas/result.schema.json') as f:
+              schema = json.load(f)
+          with open('examples/sample-result.json') as f:
+              data = json.load(f)
+          jsonschema.validate(data, schema)
+          print('sample-result.json: valid')
+          "
