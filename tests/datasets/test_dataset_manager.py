@@ -6,8 +6,6 @@ import os
 import shutil
 import tempfile
 
-import pytest
-
 from tools.xraybench.dataset_manager import DatasetManager
 
 
