@@ -12,6 +12,7 @@ _ADAPTER_REGISTRY: dict[str, str] = {
     "memgraph": "tools.xraybench.adapters.memgraph.MemgraphAdapter",
     "neo4j": "tools.xraybench.adapters.neo4j.Neo4jAdapter",
     "xraygraphdb": "tools.xraybench.adapters.xraygraphdb.XrayGraphDBAdapter",
+    "xraygraphdb-bolt": "tools.xraybench.adapters.xraygraphdb.XrayGraphDBAdapter",
 }
 
 
