@@ -486,15 +486,15 @@ def _get_physical_cores(system: str, logical_count: int) -> int:
                 text=True,
             )
             if result.returncode == 0:
+                cores_per = None
+                sockets = None
                 for line in result.stdout.splitlines():
                     if line.startswith("Core(s) per socket:"):
                         cores_per = int(line.split(":")[-1].strip())
                     elif line.startswith("Socket(s):"):
                         sockets = int(line.split(":")[-1].strip())
-                try:
-                    return cores_per * sockets  # noqa: F821 (set above)
-                except NameError:
-                    pass
+                if cores_per is not None and sockets is not None:
+                    return cores_per * sockets
     except Exception:
         pass
     return logical_count

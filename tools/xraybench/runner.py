@@ -133,9 +133,9 @@ class BenchmarkRunner:
             warm_count = spec.warm_runs
             warm_times: list[float] = []
             logger.info("Executing %d warm runs...", warm_count)
-            for i in range(warm_count):
+            for _ in range(warm_count):
                 t0 = rust_timing.monotonic_ns()
-                warm_result = self.adapter.execute(query, params)
+                self.adapter.execute(query, params)
                 t1 = rust_timing.monotonic_ns()
                 elapsed_ms = (t1 - t0) / 1_000_000.0
                 warm_times.append(elapsed_ms)
