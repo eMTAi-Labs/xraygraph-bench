@@ -182,6 +182,27 @@ def main(argv: list[str] | None = None) -> int:
         help="Statistical confidence level (default: 0.95)",
     )
 
+    # dashboard command
+    dash_parser = subparsers.add_parser(
+        "dashboard", help="Start the interactive benchmark dashboard"
+    )
+    dash_parser.add_argument(
+        "--results-dir",
+        required=True,
+        help="Path to directory containing benchmark result JSON files",
+    )
+    dash_parser.add_argument(
+        "--host",
+        default="0.0.0.0",
+        help="Host to bind the dashboard server (default: 0.0.0.0)",
+    )
+    dash_parser.add_argument(
+        "--port",
+        type=int,
+        default=8080,
+        help="Port for the dashboard server (default: 8080)",
+    )
+
     # load-test command
     lt_parser = subparsers.add_parser("load-test", help="Run a load test")
     lt_parser.add_argument("--engine", required=True, help="Engine adapter name")
@@ -234,6 +255,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_report(args)
     elif args.command == "compare":
         return _cmd_compare(args)
+    elif args.command == "dashboard":
+        return _cmd_dashboard(args)
 
     return 0
 
@@ -569,6 +592,20 @@ def _cmd_compare(args: argparse.Namespace) -> int:
     else:
         print(format_comparison_table(comparison))
 
+    return 0
+
+
+def _cmd_dashboard(args: argparse.Namespace) -> int:
+    """Start the interactive benchmark dashboard."""
+    from .dashboard import run_dashboard
+
+    print(f"Starting dashboard at http://{args.host}:{args.port}")
+    print(f"Serving results from: {args.results_dir}")
+    try:
+        run_dashboard(args.results_dir, host=args.host, port=args.port)
+    except ImportError as e:
+        print(f"Error: {e}")
+        return 1
     return 0
 
 
