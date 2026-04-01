@@ -505,5 +505,31 @@ def _cmd_export(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_compare(args: argparse.Namespace) -> int:
+    """Compare two benchmark result JSON files."""
+    from .compare import compare_results, format_comparison_table, load_result
+
+    try:
+        result_a = load_result(args.result_a)
+    except (OSError, ValueError) as e:
+        print(f"Error loading {args.result_a}: {e}")
+        return 1
+
+    try:
+        result_b = load_result(args.result_b)
+    except (OSError, ValueError) as e:
+        print(f"Error loading {args.result_b}: {e}")
+        return 1
+
+    comparison = compare_results(result_a, result_b, confidence=args.confidence)
+
+    if args.cmp_format == "json":
+        print(json.dumps(comparison, indent=2))
+    else:
+        print(format_comparison_table(comparison))
+
+    return 0
+
+
 if __name__ == "__main__":
     sys.exit(main())
