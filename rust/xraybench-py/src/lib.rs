@@ -1,3 +1,8 @@
+// PyO3's PyResult<T> is a type alias for Result<T, PyErr>. Clippy incorrectly
+// flags the PyErr position as a "useless conversion" because PyErr implements
+// Into<PyErr>. This is a known false-positive with PyO3; suppress it crate-wide.
+#![allow(clippy::useless_conversion)]
+
 use pyo3::prelude::*;
 
 pub mod checksum;

@@ -1,5 +1,8 @@
-use xraybench_types::{MetricComparison, Result};
 use crate::diff::diff_results;
+use xraybench_types::{MetricComparison, Result};
+
+/// A single engine's metrics: `(engine_name, &[(metric_name, values)])`.
+pub type EngineMetrics<'a> = (&'a str, &'a [(&'a str, &'a [f64])]);
 
 /// The result of a pairwise comparison between two named engines.
 #[derive(Debug, Clone)]
@@ -16,7 +19,7 @@ pub struct PairwiseComparison {
 ///
 /// Returns one `PairwiseComparison` per (engine pair × matched metric).
 pub fn pairwise_matrix(
-    engines: &[(&str, &[(&str, &[f64])])],
+    engines: &[EngineMetrics<'_>],
     significance_threshold: f64,
 ) -> Result<Vec<PairwiseComparison>> {
     let mut out = Vec::new();
@@ -57,7 +60,7 @@ mod tests {
         let metrics_b: &[(&str, &[f64])] = &[("cold_ms", &vals_b)];
         let metrics_c: &[(&str, &[f64])] = &[("cold_ms", &vals_c)];
 
-        let engines: &[(&str, &[(&str, &[f64])])] = &[
+        let engines: &[EngineMetrics<'_>] = &[
             ("engine_x", metrics_a),
             ("engine_y", metrics_b),
             ("engine_z", metrics_c),

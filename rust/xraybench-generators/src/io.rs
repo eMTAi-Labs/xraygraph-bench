@@ -116,9 +116,18 @@ mod tests {
         setup_temp_dir();
         let path = temp_path("binary_roundtrip.bin");
         let edges = vec![
-            Edge { source: 0, target: 1 },
-            Edge { source: 2, target: 3 },
-            Edge { source: 100, target: 200 },
+            Edge {
+                source: 0,
+                target: 1,
+            },
+            Edge {
+                source: 2,
+                target: 3,
+            },
+            Edge {
+                source: 100,
+                target: 200,
+            },
         ];
         write_edges_binary(&edges, &path).expect("write binary");
         let read_back = read_edges_binary(&path).expect("read binary");
@@ -131,9 +140,18 @@ mod tests {
         setup_temp_dir();
         let path = temp_path("csv_roundtrip.csv");
         let edges = vec![
-            Edge { source: 0, target: 1 },
-            Edge { source: 5, target: 10 },
-            Edge { source: 999, target: 1000 },
+            Edge {
+                source: 0,
+                target: 1,
+            },
+            Edge {
+                source: 5,
+                target: 10,
+            },
+            Edge {
+                source: 999,
+                target: 1000,
+            },
         ];
         write_edges_csv(&edges, &path).expect("write csv");
         let read_back = read_edges_csv(&path).expect("read csv");
@@ -146,7 +164,7 @@ mod tests {
         setup_temp_dir();
         let path = temp_path("binary_invalid.bin");
         // Write 15 bytes — not a multiple of 16
-        fs::write(&path, &[0u8; 15]).expect("write invalid binary");
+        fs::write(&path, [0u8; 15]).expect("write invalid binary");
         let result = read_edges_binary(&path);
         assert!(result.is_err(), "should fail on 15-byte file");
         fs::remove_file(&path).ok();

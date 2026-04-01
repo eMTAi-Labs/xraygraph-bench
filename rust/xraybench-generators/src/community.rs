@@ -22,8 +22,7 @@ pub fn generate_community_graph(
     let total_nodes = community_count * nodes_per_community;
     let mut edges = Vec::new();
 
-    let intra_per_node =
-        ((nodes_per_community as f64 * intra_density).floor() as u64).max(1);
+    let intra_per_node = ((nodes_per_community as f64 * intra_density).floor() as u64).max(1);
 
     // Intra-community edges
     for c in 0..community_count {
@@ -45,7 +44,7 @@ pub fn generate_community_graph(
     }
 
     // Inter-community edges
-    let inter_total = ((community_count * (community_count - 1).max(0)) as f64
+    let inter_total = ((community_count * (community_count - 1)) as f64
         * nodes_per_community as f64
         * inter_density)
         .floor() as u64;
