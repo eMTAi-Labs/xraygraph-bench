@@ -4,4 +4,18 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "stub"
+description = "Python bindings for xraybench Rust core"
+
+[lib]
+name = "xraybench_core"
+crate-type = ["cdylib"]
+
+[dependencies]
+xraybench-types = { path = "../xraybench-types" }
+xraybench-timing = { path = "../xraybench-timing" }
+xraybench-stats = { path = "../xraybench-stats" }
+xraybench-generators = { path = "../xraybench-generators" }
+xraybench-checksum = { path = "../xraybench-checksum" }
+xraybench-compare = { path = "../xraybench-compare" }
+pyo3 = { workspace = true }
+serde_json = { workspace = true }
