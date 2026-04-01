@@ -144,6 +144,24 @@ def main(argv: list[str] | None = None) -> int:
         help="Output file path (default: results.csv or results.parquet)",
     )
 
+    # report command
+    report_parser = subparsers.add_parser(
+        "report", help="Generate a static HTML report from result JSON files"
+    )
+    report_parser.add_argument(
+        "results_dir", help="Path to directory containing JSON result files"
+    )
+    report_parser.add_argument(
+        "--output",
+        default="report.html",
+        help="Output HTML file path (default: report.html)",
+    )
+    report_parser.add_argument(
+        "--title",
+        default="xraygraph-bench Report",
+        help="Report title (default: 'xraygraph-bench Report')",
+    )
+
     # compare command
     cmp_parser = subparsers.add_parser(
         "compare", help="Compare two benchmark result JSON files"
@@ -212,6 +230,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_verify_dataset(args)
     elif args.command == "export":
         return _cmd_export(args)
+    elif args.command == "report":
+        return _cmd_report(args)
     elif args.command == "compare":
         return _cmd_compare(args)
 
@@ -502,6 +522,27 @@ def _cmd_export(args: argparse.Namespace) -> int:
         return 1
 
     print(f"Exported {count} result(s) to {output_path} (format: {fmt})")
+    return 0
+
+
+def _cmd_report(args: argparse.Namespace) -> int:
+    """Generate a static HTML report from result JSON files."""
+    from .report import generate_report
+
+    results_dir = Path(args.results_dir)
+    if not results_dir.is_dir():
+        print(f"Error: results directory not found: {results_dir}")
+        return 1
+
+    output_path = Path(args.output)
+    count = generate_report(results_dir, output_path, title=args.title)
+
+    if count == 0:
+        print(f"No JSON result files found in: {results_dir}")
+        print(f"Empty report written to: {output_path}")
+    else:
+        print(f"Report generated from {count} result(s): {output_path}")
+
     return 0
 
 
