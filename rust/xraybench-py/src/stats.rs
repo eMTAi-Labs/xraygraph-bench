@@ -22,6 +22,7 @@ pub fn percentiles(mut values: Vec<f64>, ps: Vec<f64>) -> PyResult<Vec<f64>> {
 
 /// Compute descriptive statistics (count, mean, min, max, variance, stddev).
 #[pyfunction]
+#[pyo3(name = "descriptive")]
 pub fn descriptive_stats(py: Python<'_>, values: Vec<f64>) -> PyResult<PyObject> {
     let s = descriptive(&values)
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
@@ -66,7 +67,7 @@ pub fn bootstrap_ci(
 
 /// Detect outliers using the Modified Z-Score method.
 #[pyfunction]
-#[pyo3(signature = (values, threshold=3.5))]
+#[pyo3(name = "detect_outliers", signature = (values, threshold=3.5))]
 pub fn detect_outliers_py(
     py: Python<'_>,
     values: Vec<f64>,

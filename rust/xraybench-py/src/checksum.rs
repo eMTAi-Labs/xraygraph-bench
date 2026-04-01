@@ -42,6 +42,7 @@ fn py_rows_to_rust(
 
 /// Hash a result set (list of rows, where each row is a list of Python values).
 #[pyfunction]
+#[pyo3(name = "hash_result_set")]
 pub fn hash_result_set_py(rows: Vec<Vec<Bound<'_, PyAny>>>) -> PyResult<String> {
     let rust_rows = py_rows_to_rust(rows)?;
     Ok(hash_result_set(&rust_rows))
@@ -49,6 +50,7 @@ pub fn hash_result_set_py(rows: Vec<Vec<Bound<'_, PyAny>>>) -> PyResult<String> 
 
 /// Verify a result set against a reference hash.
 #[pyfunction]
+#[pyo3(name = "verify_hash")]
 pub fn verify_hash_py(rows: Vec<Vec<Bound<'_, PyAny>>>, reference: String) -> PyResult<bool> {
     let rust_rows = py_rows_to_rust(rows)?;
     verify_hash(&rust_rows, &reference)
@@ -57,6 +59,7 @@ pub fn verify_hash_py(rows: Vec<Vec<Bound<'_, PyAny>>>, reference: String) -> Py
 
 /// Compare two floats within max_ulp units in the last place.
 #[pyfunction]
+#[pyo3(name = "float_eq_ulp")]
 pub fn float_eq_ulp_py(a: f64, b: f64, max_ulp: u32) -> bool {
     float_eq_ulp(a, b, max_ulp)
 }
