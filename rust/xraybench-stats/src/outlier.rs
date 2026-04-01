@@ -39,8 +39,8 @@ pub fn detect_outliers(values: &[f64], threshold: f64) -> Result<OutlierResult> 
 
     let dispersion = if mad_val == 0.0 {
         // Fallback: mean absolute deviation from the median
-        let mean_abs_dev = values.iter().map(|&v| (v - median).abs()).sum::<f64>()
-            / values.len() as f64;
+        let mean_abs_dev =
+            values.iter().map(|&v| (v - median).abs()).sum::<f64>() / values.len() as f64;
         mean_abs_dev
     } else {
         mad_val
@@ -95,7 +95,7 @@ pub fn compute_median(values: &[f64]) -> f64 {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-fn compute_median_of_sorted_or_unsorted(v: &mut Vec<f64>) -> f64 {
+fn compute_median_of_sorted_or_unsorted(v: &mut [f64]) -> f64 {
     v.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
     let n = v.len();
     if n % 2 == 1 {
@@ -123,7 +123,10 @@ mod tests {
         let mut values: Vec<f64> = vec![10.0; 100];
         values.push(1_000_000.0); // one extreme outlier
         let res = detect_outliers(&values, DEFAULT_THRESHOLD).unwrap();
-        assert!(!res.outlier_indices.is_empty(), "should detect the extreme outlier");
+        assert!(
+            !res.outlier_indices.is_empty(),
+            "should detect the extreme outlier"
+        );
         assert!(res.outlier_indices.contains(&100));
     }
 

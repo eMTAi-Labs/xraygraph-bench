@@ -1,5 +1,5 @@
-use xraybench_types::{BenchError, ChangeClass, MetricComparison, Result};
 use crate::bootstrap::{bca_mean_ci, BootstrapConfig};
+use xraybench_types::{BenchError, ChangeClass, MetricComparison, Result};
 
 // ── Result types ──────────────────────────────────────────────────────────────
 
@@ -50,8 +50,8 @@ pub fn mann_whitney_u(sample_a: &[f64], sample_b: &[f64]) -> Result<MannWhitneyR
             j += 1;
         }
         let avg_rank = (i + j + 1) as f64 / 2.0; // 1-based average
-        for k in i..j {
-            ranks[k] = avg_rank;
+        for rank in ranks.iter_mut().take(j).skip(i) {
+            *rank = avg_rank;
         }
         i = j;
     }
@@ -146,11 +146,21 @@ pub fn compare_metric(
         // Mann-Whitney for significance
         let mw = mann_whitney_u(values_a, values_b)?;
 
-        (ci.lower, ci.upper, mw.p_value, mw.p_value < significance_threshold)
+        (
+            ci.lower,
+            ci.upper,
+            mw.p_value,
+            mw.p_value < significance_threshold,
+        )
     } else {
         // Not enough data for bootstrap — use Mann-Whitney only
         let mw = mann_whitney_u(values_a, values_b)?;
-        (absolute_delta, absolute_delta, mw.p_value, mw.p_value < significance_threshold)
+        (
+            absolute_delta,
+            absolute_delta,
+            mw.p_value,
+            mw.p_value < significance_threshold,
+        )
     };
 
     // ── Classify ──────────────────────────────────────────────────────────────
@@ -237,8 +247,12 @@ mod tests {
         let b: Vec<f64> = vec![6.0, 7.0, 8.0, 9.0, 10.0];
         let res = mann_whitney_u(&a, &b).unwrap();
         // U_A + U_B = n_A * n_B = 25
-        assert!((res.u_a + res.u_b - 25.0).abs() < 1e-9,
-            "u_a={} u_b={}", res.u_a, res.u_b);
+        assert!(
+            (res.u_a + res.u_b - 25.0).abs() < 1e-9,
+            "u_a={} u_b={}",
+            res.u_a,
+            res.u_b
+        );
     }
 
     #[test]
@@ -255,8 +269,13 @@ mod tests {
         let a: Vec<f64> = vec![100.0; 50];
         let b: Vec<f64> = vec![50.0; 50];
         let res = compare_metric("latency_ns", &a, &b, 0.05).unwrap();
-        assert_eq!(res.classification, ChangeClass::Improvement,
-            "classification={:?} p={}", res.classification, res.p_value);
+        assert_eq!(
+            res.classification,
+            ChangeClass::Improvement,
+            "classification={:?} p={}",
+            res.classification,
+            res.p_value
+        );
     }
 
     #[test]
@@ -265,7 +284,12 @@ mod tests {
         let a: Vec<f64> = vec![50.0; 50];
         let b: Vec<f64> = vec![100.0; 50];
         let res = compare_metric("latency_ns", &a, &b, 0.05).unwrap();
-        assert_eq!(res.classification, ChangeClass::Regression,
-            "classification={:?} p={}", res.classification, res.p_value);
+        assert_eq!(
+            res.classification,
+            ChangeClass::Regression,
+            "classification={:?} p={}",
+            res.classification,
+            res.p_value
+        );
     }
 }

@@ -42,10 +42,7 @@ pub fn generate_uniform_nodes(
                     _ => {
                         let len: usize = rng.gen_range(4..12);
                         let text: String = (0..len)
-                            .map(|_| {
-                                let c = rng.gen_range(b'a'..=b'z') as char;
-                                c
-                            })
+                            .map(|_| rng.gen_range(b'a'..=b'z') as char)
                             .collect();
                         properties.push(PropertyValue::Text(text));
                     }
@@ -98,10 +95,14 @@ mod tests {
         let a = generate_uniform_nodes(100, 4, 0.0, 42);
         let b = generate_uniform_nodes(100, 4, 0.0, 99);
         // At least some property should differ (beyond id)
-        let differ = a.iter().zip(b.iter()).any(|(na, nb)| {
-            na.properties[1..] != nb.properties[1..]
-        });
-        assert!(differ, "different seeds should produce different properties");
+        let differ = a
+            .iter()
+            .zip(b.iter())
+            .any(|(na, nb)| na.properties[1..] != nb.properties[1..]);
+        assert!(
+            differ,
+            "different seeds should produce different properties"
+        );
     }
 
     #[test]
@@ -123,7 +124,10 @@ mod tests {
             .iter()
             .filter(|n| n.properties[2] == PropertyValue::Null)
             .count();
-        assert_eq!(nulls, 1000, "all Float properties should be Null at ratio=1.0");
+        assert_eq!(
+            nulls, 1000,
+            "all Float properties should be Null at ratio=1.0"
+        );
     }
 
     #[test]
