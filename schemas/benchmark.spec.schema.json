@@ -23,7 +23,7 @@
     },
     "family": {
       "type": "string",
-      "enum": ["core-executor", "graph-breakers", "end-to-end", "public-compare", "compile"],
+      "enum": ["core-executor", "graph-breakers", "end-to-end", "public-compare", "compile", "gfql"],
       "description": "Benchmark family this spec belongs to."
     },
     "version": {
@@ -67,9 +67,35 @@
       "additionalProperties": false,
       "description": "Dataset required for this benchmark."
     },
+    "query_language": {
+      "type": "string",
+      "enum": ["cypher", "gfql"],
+      "default": "cypher",
+      "description": "Query language. Default: cypher. GFQL benchmarks are always Tier B."
+    },
     "query_template": {
       "type": "string",
-      "description": "Cypher query template with $param placeholders. Adapters may translate to engine-specific syntax."
+      "description": "Primary query template with $param placeholders."
+    },
+    "gfql_template": {
+      "type": "string",
+      "description": "Optional GFQL equivalent of the query_template. Used for Tier B GFQL benchmarks."
+    },
+    "tier": {
+      "type": "string",
+      "enum": ["A", "B"],
+      "default": "A",
+      "description": "A = portable cross-engine comparison via Bolt/Cypher. B = engine-native advantage (GFQL, xrayProtocol, etc.)."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "candidate", "published", "deprecated", "retired"],
+      "default": "published",
+      "description": "Spec lifecycle status."
+    },
+    "citation": {
+      "type": "string",
+      "description": "Research basis or reference for this benchmark design."
     },
     "parameters": {
       "type": "object",
@@ -110,7 +136,7 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["row_count", "exact_match", "checksum", "row_count_range", "structural"],
+          "enum": ["row_count", "exact_match", "checksum", "row_count_range", "structural", "invariant"],
           "description": "Type of correctness check."
         },
         "expected_row_count": {

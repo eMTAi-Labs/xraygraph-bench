@@ -1,0 +1,85 @@
+name: traversal-gfql
+family: gfql
+version: "1.0.0"
+tier: B
+status: published
+query_language: gfql
+description: >
+  GFQL single-hop and multi-hop traversal using chain().n().e_forward().n()
+  syntax. This is the GFQL equivalent of the graph-breakers expand-high-fanout
+  benchmark. Tests whether GFQL's edge traversal operators (e_forward, e_reverse)
+  transpile to the same physical expand operators used by Cypher MATCH patterns.
+  On hub graphs with high fanout, this exposes whether the GFQL frontend adds
+  measurable overhead to the critical path of graph expansion.
+
+citation: >
+  Graphistry GFQL specification — e_forward/e_reverse operators. Graph expansion
+  benchmark methodology from LDBC SNB Interactive workload specification.
+
+dataset:
+  name: synthetic-hub
+  type: synthetic
+  generator: hub_graph
+  generator_params:
+    hub_count: 100
+    spoke_count_per_hub: 100000
+    edge_type: CONNECTED_TO
+    seed: 42
+
+query_template: >
+  chain()
+    .n({"label": "Hub", "id": $hub_id})
+    .e_forward({"type": "CONNECTED_TO"})
+    .n()
+
+gfql_template: >
+  chain()
+    .n({"label": "Hub", "id": $hub_id})
+    .e_forward({"type": "CONNECTED_TO"})
+    .n()
+
+parameters:
+  hub_id:
+    type: integer
+    default: 0
+    min: 0
+    max: 99
+    description: >
+      ID of the hub node to expand from. Different hubs have the same
+      fanout in synthetic data but may differ in real datasets.
+  hub_fanout:
+    type: integer
+    default: 100000
+    min: 1000
+    max: 1000000
+    description: >
+      Expected fanout per hub node.
+
+correctness_oracle:
+  type: row_count
+  expected_row_count: 100000
+  description: >
+    Each hub connects to exactly spoke_count_per_hub spoke nodes.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - compile_ms
+  - rows_in
+  - rows_out
+  - segments
+  - breakers
+
+tags:
+  - gfql
+  - tier-b
+  - traversal
+  - expansion
+  - high-fanout
+
+warm_runs: 10
+timeout_seconds: 300
+
+notes: >
+  Tier B benchmark — xrayGraphDB only. Compare against expand-high-fanout
+  (Cypher) to measure GFQL frontend overhead on graph expansion workloads.

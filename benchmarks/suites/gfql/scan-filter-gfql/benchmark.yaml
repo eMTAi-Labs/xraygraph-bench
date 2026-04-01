@@ -1,0 +1,89 @@
+name: scan-filter-gfql
+family: gfql
+version: "1.0.0"
+tier: B
+status: published
+query_language: gfql
+description: >
+  GFQL equivalent of the core-executor scan-filter-project benchmark. Measures
+  scan, filter, and projection using GFQL dataframe-style chain syntax instead
+  of Cypher. Since GFQL transpiles to Cypher internally, this benchmark exposes
+  the transpilation overhead — the cost of parsing and lowering GFQL to the
+  shared execution plan. Comparing cold_ms between this and scan-filter-project
+  (Cypher) reveals the GFQL frontend cost.
+
+citation: >
+  Graphistry GFQL specification (https://hub.graphistry.com/docs/GFQL/gfql/).
+  Transpilation overhead measurement inspired by Neumann, "Efficiently Compiling
+  Efficient Query Plans for Modern Hardware" (VLDB 2011).
+
+dataset:
+  name: synthetic-uniform
+  type: synthetic
+  generator: uniform_nodes
+  generator_params:
+    node_count: 1000000
+    properties:
+      id: integer
+      value: float
+      category: string
+    seed: 42
+
+query_template: >
+  chain()
+    .n({"label": "Node"})
+    .filter("value", ">", $threshold)
+    .map("id", "value")
+
+gfql_template: >
+  chain()
+    .n({"label": "Node"})
+    .filter("value", ">", $threshold)
+    .map("id", "value")
+
+parameters:
+  threshold:
+    type: float
+    default: 0.5
+    min: 0.0
+    max: 1.0
+    description: >
+      Selectivity threshold. Lower values produce more output rows.
+  row_count:
+    type: integer
+    default: 1000000
+    min: 1000
+    max: 10000000
+    description: >
+      Number of nodes in the synthetic dataset.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 1
+  expected_row_count_max: 1000000
+  description: >
+    Result count depends on threshold. At threshold=0.5, approximately
+    50% of rows pass the filter (~500K rows).
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - compile_ms
+  - rows_in
+  - rows_out
+
+tags:
+  - gfql
+  - tier-b
+  - transpilation
+  - scan
+  - filter
+
+warm_runs: 20
+timeout_seconds: 120
+
+notes: >
+  Tier B benchmark — xrayGraphDB only. Requires SET GFQL_CONTEXT before
+  execution. Results are NOT comparable to Tier A Cypher benchmarks in
+  cross-engine charts. Compare against scan-filter-project (Cypher) on
+  the same engine to measure transpilation overhead.
