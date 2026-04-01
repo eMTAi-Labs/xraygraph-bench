@@ -4,4 +4,9 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "stub"
+description = "Compiled graph generators for xraybench datasets"
+
+[dependencies]
+xraybench-types = { path = "../xraybench-types" }
+rand = { workspace = true }
+rand_chacha = { workspace = true }
