@@ -50,7 +50,10 @@ pub fn exact_percentiles(values: &mut [f64], percentiles: &[f64]) -> Result<Vec<
         }
     }
     values.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-    Ok(percentiles.iter().map(|&p| interpolate(values, p)).collect())
+    Ok(percentiles
+        .iter()
+        .map(|&p| interpolate(values, p))
+        .collect())
 }
 
 /// Single-pass Welford's online algorithm for descriptive statistics.
@@ -80,7 +83,11 @@ pub fn descriptive(values: &[f64]) -> Result<DescriptiveStats> {
         }
     }
 
-    let variance = if count < 2 { 0.0 } else { m2 / (count - 1) as f64 };
+    let variance = if count < 2 {
+        0.0
+    } else {
+        m2 / (count - 1) as f64
+    };
     let stddev = variance.sqrt();
 
     Ok(DescriptiveStats {

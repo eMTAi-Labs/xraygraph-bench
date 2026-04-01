@@ -1,12 +1,12 @@
-use pyo3::prelude::*;
 use pyo3::exceptions::PyRuntimeError;
+use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
 /// Calibrate the clock and return a dict with resolution/overhead metrics.
 #[pyfunction]
 pub fn calibrate(py: Python<'_>) -> PyResult<PyObject> {
-    let result = xraybench_timing::calibrate()
-        .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+    let result =
+        xraybench_timing::calibrate().map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
 
     let dict = PyDict::new_bound(py);
     dict.set_item("clock_resolution_ns", result.clock_resolution_ns)?;
@@ -19,8 +19,7 @@ pub fn calibrate(py: Python<'_>) -> PyResult<PyObject> {
 /// Return the current monotonic timestamp in nanoseconds.
 #[pyfunction]
 pub fn monotonic_ns() -> PyResult<u64> {
-    xraybench_timing::monotonic_ns()
-        .map_err(|e| PyRuntimeError::new_err(e.to_string()))
+    xraybench_timing::monotonic_ns().map_err(|e| PyRuntimeError::new_err(e.to_string()))
 }
 
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {

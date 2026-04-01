@@ -9,10 +9,7 @@ use xraybench_types::Edge;
 /// attaches to `m` existing nodes with probability proportional to degree.
 pub fn generate_power_law(node_count: u64, m: u32, seed: u64) -> Vec<Edge> {
     assert!(m >= 1, "m must be at least 1");
-    assert!(
-        node_count > m as u64,
-        "node_count must be greater than m"
-    );
+    assert!(node_count > m as u64, "node_count must be greater than m");
 
     let mut rng = ChaCha20Rng::seed_from_u64(seed);
     let mut edges: Vec<Edge> = Vec::new();
@@ -22,8 +19,14 @@ pub fn generate_power_law(node_count: u64, m: u32, seed: u64) -> Vec<Edge> {
     // Build initial clique with both directions
     for i in 0..initial {
         for j in (i + 1)..initial {
-            edges.push(Edge { source: i, target: j });
-            edges.push(Edge { source: j, target: i });
+            edges.push(Edge {
+                source: i,
+                target: j,
+            });
+            edges.push(Edge {
+                source: j,
+                target: i,
+            });
         }
     }
 
@@ -109,7 +112,12 @@ mod tests {
             degree[e.source as usize] += 1;
         }
         let max_deg = *degree.iter().max().unwrap();
-        let min_deg = degree.iter().filter(|&&d| d > 0).min().copied().unwrap_or(1);
+        let min_deg = degree
+            .iter()
+            .filter(|&&d| d > 0)
+            .min()
+            .copied()
+            .unwrap_or(1);
         assert!(
             max_deg > 10 * min_deg,
             "expected skewed degree distribution: max={max_deg}, min={min_deg}"

@@ -39,7 +39,10 @@ impl TDigest {
     /// Insert a value with an explicit weight.
     pub fn insert_weighted(&mut self, value: f64, weight: f64) {
         // Add as a new centroid then merge if needed
-        self.centroids.push(Centroid { mean: value, weight });
+        self.centroids.push(Centroid {
+            mean: value,
+            weight,
+        });
         self.total_weight += weight;
 
         let max_centroids = (self.compression * 2.0) as usize;
@@ -169,16 +172,10 @@ mod tests {
         }
         // p50 ≈ 5000.5, allow 2% error = 100
         let p50 = td.quantile(0.5).unwrap();
-        assert!(
-            (p50 - 5000.5).abs() < 200.0,
-            "p50={p50} expected ~5000.5"
-        );
+        assert!((p50 - 5000.5).abs() < 200.0, "p50={p50} expected ~5000.5");
         let p99 = td.quantile(0.99).unwrap();
         // 99th percentile ≈ 9901, allow 2% error = 200
-        assert!(
-            (p99 - 9901.0).abs() < 400.0,
-            "p99={p99} expected ~9901"
-        );
+        assert!((p99 - 9901.0).abs() < 400.0, "p99={p99} expected ~9901");
     }
 
     #[test]
@@ -222,9 +219,6 @@ mod tests {
         );
         let p99 = td.quantile(0.99).unwrap();
         // 99th ≈ 99001, allow 5% = 5000
-        assert!(
-            (p99 - 99_001.0).abs() < 5000.0,
-            "p99={p99} expected ~99001"
-        );
+        assert!((p99 - 99_001.0).abs() < 5000.0, "p99={p99} expected ~99001");
     }
 }

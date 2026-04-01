@@ -52,7 +52,7 @@ where
 {
     timing_fence();
     let t1 = monotonic_ns()?;
-    work_fn().map_err(|e| xraybench_types::BenchError::InvalidData(e))?;
+    work_fn().map_err(xraybench_types::BenchError::InvalidData)?;
     let t2 = monotonic_ns()?;
     timing_fence();
 
@@ -114,11 +114,8 @@ where
             let durations: Vec<f64> = steady_state.iter().map(|m| m.duration_ns as f64).collect();
             let mean = durations.iter().sum::<f64>() / n as f64;
             if mean > 0.0 {
-                let variance = durations
-                    .iter()
-                    .map(|x| (x - mean).powi(2))
-                    .sum::<f64>()
-                    / (n - 1) as f64;
+                let variance =
+                    durations.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (n - 1) as f64;
                 let stddev = variance.sqrt();
                 let ci_half = 1.96 * stddev / (n as f64).sqrt();
                 if ci_half < config.target_ci_fraction * mean {
@@ -173,7 +170,10 @@ mod tests {
         assert!(result.cold.duration_ns > 0);
 
         // Should have some warmup and steady-state measurements
-        assert!(!result.steady_state.is_empty(), "should have steady-state samples");
+        assert!(
+            !result.steady_state.is_empty(),
+            "should have steady-state samples"
+        );
     }
 
     #[test]

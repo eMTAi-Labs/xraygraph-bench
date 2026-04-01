@@ -229,9 +229,18 @@ mod tests {
 
     #[test]
     fn edge_equality() {
-        let e1 = Edge { source: 1, target: 2 };
-        let e2 = Edge { source: 1, target: 2 };
-        let e3 = Edge { source: 2, target: 1 };
+        let e1 = Edge {
+            source: 1,
+            target: 2,
+        };
+        let e2 = Edge {
+            source: 1,
+            target: 2,
+        };
+        let e3 = Edge {
+            source: 2,
+            target: 1,
+        };
         assert_eq!(e1, e2);
         assert_ne!(e1, e3);
     }
@@ -241,7 +250,7 @@ mod tests {
         let variants: Vec<PropertyValue> = vec![
             PropertyValue::Null,
             PropertyValue::Integer(-42),
-            PropertyValue::Float(3.14),
+            PropertyValue::Float(3.125),
             PropertyValue::Text("hello".to_string()),
             PropertyValue::Boolean(true),
         ];
@@ -279,7 +288,10 @@ mod tests {
         let e2 = BenchError::CalibrationFailed("variance too high".to_string());
         assert!(e2.to_string().contains("variance too high"));
 
-        let e3 = BenchError::InsufficientSamples { needed: 100, got: 12 };
+        let e3 = BenchError::InsufficientSamples {
+            needed: 100,
+            got: 12,
+        };
         let msg = e3.to_string();
         assert!(msg.contains("100"));
         assert!(msg.contains("12"));

@@ -63,3 +63,5 @@ htmlcov/
 
 # Jupyter
 .ipynb_checkpoints/
+rust/target/
+.venv/

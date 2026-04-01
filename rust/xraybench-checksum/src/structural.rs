@@ -113,7 +113,10 @@ mod tests {
 
     // helpers
     fn e(s: u64, t: u64) -> Edge {
-        Edge { source: s, target: t }
+        Edge {
+            source: s,
+            target: t,
+        }
     }
 
     // ── canonicalize_path ─────────────────────────────────────────────────────

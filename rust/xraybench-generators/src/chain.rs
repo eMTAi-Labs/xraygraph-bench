@@ -34,10 +34,34 @@ mod tests {
     #[test]
     fn chain_structure() {
         let edges = generate_chain(5, 0);
-        assert_eq!(edges[0], Edge { source: 0, target: 1 });
-        assert_eq!(edges[1], Edge { source: 1, target: 2 });
-        assert_eq!(edges[2], Edge { source: 2, target: 3 });
-        assert_eq!(edges[3], Edge { source: 3, target: 4 });
+        assert_eq!(
+            edges[0],
+            Edge {
+                source: 0,
+                target: 1
+            }
+        );
+        assert_eq!(
+            edges[1],
+            Edge {
+                source: 1,
+                target: 2
+            }
+        );
+        assert_eq!(
+            edges[2],
+            Edge {
+                source: 2,
+                target: 3
+            }
+        );
+        assert_eq!(
+            edges[3],
+            Edge {
+                source: 3,
+                target: 4
+            }
+        );
     }
 
     #[test]

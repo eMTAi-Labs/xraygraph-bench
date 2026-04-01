@@ -1,0 +1,38 @@
+{
+  "benchmark": "simple-return",
+  "engine": "xraygraphdb",
+  "engine_version": "4.0.2",
+  "protocol": "xrayProtocol",
+  "dataset": "live-code-graph",
+  "dataset_version": "current",
+  "cold_ms": 93.598,
+  "warm_ms": 88.333,
+  "rows_out": 1,
+  "correctness": {
+    "passed": true,
+    "detail": "1 rows returned"
+  },
+  "timestamp": "2026-04-01T12:42:59Z",
+  "host": {
+    "os": "remote",
+    "cpu": "unknown",
+    "cores": 0,
+    "memory_gb": 0
+  },
+  "calibration": {
+    "clock_resolution_ns": 41,
+    "clock_overhead_ns": 0
+  },
+  "stats": {
+    "p50_ms": 87.686,
+    "p95_ms": 93.327,
+    "p99_ms": 93.908,
+    "min_ms": 85.538,
+    "max_ms": 94.053,
+    "stddev_ms": 2.386,
+    "ci_lower_ms": 87.486,
+    "ci_upper_ms": 89.59,
+    "outliers": 1,
+    "samples": 20
+  }
+}
