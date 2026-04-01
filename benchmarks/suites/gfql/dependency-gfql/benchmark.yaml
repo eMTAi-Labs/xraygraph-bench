@@ -1,0 +1,89 @@
+name: dependency-gfql
+family: gfql
+version: "1.0.0"
+tier: B
+status: published
+query_language: gfql
+description: >
+  GFQL code dependency analysis using chained forward traversal with typed
+  edges. This is the GFQL equivalent of the end-to-end code-dependency-analysis
+  benchmark. Uses GFQL's natural chain syntax for multi-hop typed edge
+  traversal — the use case GFQL was specifically designed for. Tests whether
+  GFQL's code intelligence operators (e_forward with type filters) perform
+  equivalently to Cypher on real-world dependency graph patterns.
+
+citation: >
+  Graphistry GFQL specification — code intelligence operators. Software
+  dependency analysis methodology from Bavota et al., "An Empirical Study
+  on the Developers' Perception of Software Coupling" (ICSE 2013).
+
+dataset:
+  name: synthetic-code-graph
+  type: synthetic
+  generator: deep_traversal
+  generator_params:
+    num_roots: 50
+    fanout_per_level: [8, 6, 4, 3, 2]
+    seed: 42
+
+query_template: >
+  chain()
+    .n({"id": $module_id})
+    .e_forward({"type": "CALLS", "max_hops": $max_depth})
+    .n()
+    .sort_by("id")
+
+gfql_template: >
+  chain()
+    .n({"id": $module_id})
+    .e_forward({"type": "CALLS", "max_hops": $max_depth})
+    .n()
+    .sort_by("id")
+
+parameters:
+  module_id:
+    type: integer
+    default: 0
+    min: 0
+    max: 49
+    description: >
+      Root module ID to analyze dependencies from.
+  max_depth:
+    type: integer
+    default: 5
+    min: 1
+    max: 10
+    description: >
+      Maximum dependency chain depth.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 1
+  expected_row_count_max: 1000000
+  description: >
+    All transitive dependencies of the root module within max_depth hops.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - compile_ms
+  - rows_in
+  - rows_out
+  - segments
+  - breakers
+
+tags:
+  - gfql
+  - tier-b
+  - code-intelligence
+  - dependency-analysis
+  - real-world
+
+warm_runs: 10
+timeout_seconds: 300
+
+notes: >
+  Tier B benchmark — xrayGraphDB only. This represents GFQL's strongest
+  use case: code intelligence queries expressed in dataframe chain syntax.
+  Compare against code-dependency-analysis (Cypher) to validate that GFQL
+  transpilation produces equivalent execution plans for dependency traversal.
