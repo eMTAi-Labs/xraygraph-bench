@@ -15,7 +15,6 @@ Configuration:
 from __future__ import annotations
 
 import logging
-import time
 from time import perf_counter
 from typing import Any
 
