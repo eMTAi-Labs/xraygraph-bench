@@ -4,4 +4,9 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "stub"
+description = "Statistical engine for xraybench — percentiles, CI, outliers, regression"
+
+[dependencies]
+xraybench-types = { path = "../xraybench-types" }
+rand = { workspace = true }
+rand_chacha = { workspace = true }
