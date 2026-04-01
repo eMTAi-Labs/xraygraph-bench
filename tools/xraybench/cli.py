@@ -7,6 +7,7 @@ Usage:
     xraybench load-test --engine <name>      Run a load test
     xraybench generate --generator <name> --name <name>  Generate a synthetic dataset
     xraybench verify-dataset --type <type> --name <name> Verify a dataset
+    xraybench compare <result_a> <result_b>  Compare two benchmark result files
 """
 
 from __future__ import annotations
@@ -123,6 +124,46 @@ def main(argv: list[str] | None = None) -> int:
         help="Override data directory (default: /data/xraybench)",
     )
 
+    # export command
+    export_parser = subparsers.add_parser(
+        "export", help="Export benchmark results to CSV or Parquet"
+    )
+    export_parser.add_argument(
+        "results_dir", help="Path to directory containing JSON result files"
+    )
+    export_parser.add_argument(
+        "--format",
+        choices=["csv", "parquet"],
+        default="csv",
+        dest="export_format",
+        help="Output format (default: csv)",
+    )
+    export_parser.add_argument(
+        "--output",
+        default=None,
+        help="Output file path (default: results.csv or results.parquet)",
+    )
+
+    # compare command
+    cmp_parser = subparsers.add_parser(
+        "compare", help="Compare two benchmark result JSON files"
+    )
+    cmp_parser.add_argument("result_a", help="Path to first result JSON file (baseline)")
+    cmp_parser.add_argument("result_b", help="Path to second result JSON file (candidate)")
+    cmp_parser.add_argument(
+        "--format",
+        choices=["table", "json"],
+        default="table",
+        dest="cmp_format",
+        help="Output format (default: table)",
+    )
+    cmp_parser.add_argument(
+        "--confidence",
+        type=float,
+        default=0.95,
+        help="Statistical confidence level (default: 0.95)",
+    )
+
     # load-test command
     lt_parser = subparsers.add_parser("load-test", help="Run a load test")
     lt_parser.add_argument("--engine", required=True, help="Engine adapter name")
@@ -169,6 +210,10 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_generate(args)
     elif args.command == "verify-dataset":
         return _cmd_verify_dataset(args)
+    elif args.command == "export":
+        return _cmd_export(args)
+    elif args.command == "compare":
+        return _cmd_compare(args)
 
     return 0
 
@@ -425,6 +470,39 @@ def _cmd_verify_dataset(args: argparse.Namespace) -> int:
         for error in result["errors"]:
             print(f"  - {error}")
         return 1
+
+
+def _cmd_export(args: argparse.Namespace) -> int:
+    """Export benchmark results to CSV or Parquet."""
+    from tools.xraybench.export import export_csv, export_parquet, load_results
+
+    results_dir = Path(args.results_dir)
+    if not results_dir.is_dir():
+        print(f"Error: results directory not found: {results_dir}")
+        return 1
+
+    fmt = args.export_format
+    output = args.output
+    if output is None:
+        output = f"results.{fmt}"
+    output_path = Path(output)
+
+    results = load_results(results_dir)
+    if not results:
+        print(f"No JSON result files found in: {results_dir}")
+        return 1
+
+    try:
+        if fmt == "csv":
+            count = export_csv(results, output_path)
+        else:
+            count = export_parquet(results, output_path)
+    except ImportError as e:
+        print(f"Error: {e}")
+        return 1
+
+    print(f"Exported {count} result(s) to {output_path} (format: {fmt})")
+    return 0
 
 
 if __name__ == "__main__":
