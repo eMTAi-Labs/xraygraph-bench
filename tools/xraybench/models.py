@@ -5,7 +5,9 @@ from __future__ import annotations
 import datetime
 import platform
 import os
+import subprocess
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 
@@ -93,32 +95,132 @@ class BenchmarkSpec:
         )
 
 
+# ---------------------------------------------------------------------------
+# Enhanced HostInfo with full environment capture
+# ---------------------------------------------------------------------------
+
+
 @dataclass
 class HostInfo:
-    """Host environment information."""
+    """Host environment information with comprehensive system details."""
 
     os: str
     cpu: str
     cores: int
-    memory_gb: float
+    threads: int | None = None
+    memory_gb: float = 0.0
+    memory_available_gb: float | None = None
+    numa_nodes: int | None = None
+    cpu_governor: str | None = None
+    swap_gb: float | None = None
+    container: bool = False
+    cgroup_memory_limit_gb: float | None = None
 
     @classmethod
     def collect(cls) -> HostInfo:
         """Collect host information from the current environment."""
+        system = platform.system()
+        cores = os.cpu_count() or 1
         return cls(
-            os=f"{platform.system()} {platform.release()}",
+            os=f"{system} {platform.release()}",
             cpu=platform.processor() or "unknown",
-            cores=os.cpu_count() or 1,
+            cores=_get_physical_cores(system, cores),
+            threads=cores,
             memory_gb=_get_memory_gb(),
+            memory_available_gb=_get_memory_available_gb(system),
+            numa_nodes=_get_numa_nodes(system),
+            cpu_governor=_get_cpu_governor(system),
+            swap_gb=_get_swap_gb(system),
+            container=_detect_container(),
+            cgroup_memory_limit_gb=_get_cgroup_memory_limit_gb(),
         )
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result: dict[str, Any] = {
             "os": self.os,
             "cpu": self.cpu,
             "cores": self.cores,
             "memory_gb": self.memory_gb,
         }
+        if self.threads is not None:
+            result["threads"] = self.threads
+        if self.memory_available_gb is not None:
+            result["memory_available_gb"] = self.memory_available_gb
+        if self.numa_nodes is not None:
+            result["numa_nodes"] = self.numa_nodes
+        if self.cpu_governor is not None:
+            result["cpu_governor"] = self.cpu_governor
+        if self.swap_gb is not None:
+            result["swap_gb"] = self.swap_gb
+        if self.container:
+            result["container"] = self.container
+        if self.cgroup_memory_limit_gb is not None:
+            result["cgroup_memory_limit_gb"] = self.cgroup_memory_limit_gb
+        return result
+
+
+# ---------------------------------------------------------------------------
+# ResourceControl — records what environment controls were applied
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ResourceControl:
+    """Records which resource controls were applied during the benchmark run."""
+
+    cpu_governor: str | None = None
+    turbo_boost: bool | None = None
+    swap_enabled: bool | None = None
+    core_pinning: str | None = None
+    numa_policy: str | None = None
+    engine_memory_limit_gb: float | None = None
+    cache_drop_successful: bool | None = None
+    engine_restarted_for_cold: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        if self.cpu_governor is not None:
+            result["cpu_governor"] = self.cpu_governor
+        if self.turbo_boost is not None:
+            result["turbo_boost"] = self.turbo_boost
+        if self.swap_enabled is not None:
+            result["swap_enabled"] = self.swap_enabled
+        if self.core_pinning is not None:
+            result["core_pinning"] = self.core_pinning
+        if self.numa_policy is not None:
+            result["numa_policy"] = self.numa_policy
+        if self.engine_memory_limit_gb is not None:
+            result["engine_memory_limit_gb"] = self.engine_memory_limit_gb
+        if self.cache_drop_successful is not None:
+            result["cache_drop_successful"] = self.cache_drop_successful
+        if self.engine_restarted_for_cold:
+            result["engine_restarted_for_cold"] = self.engine_restarted_for_cold
+        return result
+
+
+# ---------------------------------------------------------------------------
+# RunnerCalibration — clock and adapter overhead measurements
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class RunnerCalibration:
+    """Clock and adapter overhead calibration from the Rust timing core."""
+
+    clock_resolution_ns: int
+    clock_overhead_ns: int
+    fence_overhead_ns: int
+    adapter_overhead_ms: float | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        result: dict[str, Any] = {
+            "clock_resolution_ns": self.clock_resolution_ns,
+            "clock_overhead_ns": self.clock_overhead_ns,
+            "fence_overhead_ns": self.fence_overhead_ns,
+        }
+        if self.adapter_overhead_ms is not None:
+            result["adapter_overhead_ms"] = self.adapter_overhead_ms
+        return result
 
 
 @dataclass
@@ -189,6 +291,16 @@ class BenchmarkResult:
     parameters: dict[str, Any] = field(default_factory=dict)
     host: HostInfo | None = None
     notes: str | None = None
+    # --- Phase 5 additions ---
+    outcome: str | None = None
+    outcome_detail: str | None = None
+    tier: str | None = None
+    resource_control: ResourceControl | None = None
+    calibration: RunnerCalibration | None = None
+    warmup_iterations: int | None = None
+    steady_state_samples: int | None = None
+    ci_lower_ms: float | None = None
+    ci_upper_ms: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to a dictionary matching the result schema."""
@@ -242,6 +354,28 @@ class BenchmarkResult:
         if self.notes is not None:
             result["notes"] = self.notes
 
+        # Phase 5 fields
+        if self.outcome is not None:
+            result["outcome"] = self.outcome
+        if self.outcome_detail is not None:
+            result["outcome_detail"] = self.outcome_detail
+        if self.tier is not None:
+            result["tier"] = self.tier
+        if self.resource_control is not None:
+            rc_dict = self.resource_control.to_dict()
+            if rc_dict:
+                result["resource_control"] = rc_dict
+        if self.calibration is not None:
+            result["calibration"] = self.calibration.to_dict()
+        if self.warmup_iterations is not None:
+            result["warmup_iterations"] = self.warmup_iterations
+        if self.steady_state_samples is not None:
+            result["steady_state_samples"] = self.steady_state_samples
+        if self.ci_lower_ms is not None:
+            result["ci_lower_ms"] = self.ci_lower_ms
+        if self.ci_upper_ms is not None:
+            result["ci_upper_ms"] = self.ci_upper_ms
+
         return result
 
 
@@ -269,8 +403,13 @@ class DatasetManifest:
         return cls(**data)
 
 
+# ---------------------------------------------------------------------------
+# Environment detection helpers
+# ---------------------------------------------------------------------------
+
+
 def _get_memory_gb() -> float:
-    """Get system memory in GB. Cross-platform."""
+    """Get total system memory in GB. Cross-platform."""
     try:
         if platform.system() == "Linux":
             with open("/proc/meminfo") as f:
@@ -279,8 +418,6 @@ def _get_memory_gb() -> float:
                         kb = int(line.split()[1])
                         return round(kb / (1024 * 1024), 1)
         elif platform.system() == "Darwin":
-            import subprocess
-
             result = subprocess.run(
                 ["sysctl", "-n", "hw.memsize"],
                 capture_output=True,
@@ -291,3 +428,182 @@ def _get_memory_gb() -> float:
     except Exception:
         pass
     return 0.0
+
+
+def _get_memory_available_gb(system: str) -> float | None:
+    """Get available memory in GB."""
+    try:
+        if system == "Linux":
+            with open("/proc/meminfo") as f:
+                for line in f:
+                    if line.startswith("MemAvailable:"):
+                        kb = int(line.split()[1])
+                        return round(kb / (1024 * 1024), 1)
+        elif system == "Darwin":
+            # Use vm_stat to estimate available memory
+            result = subprocess.run(
+                ["vm_stat"],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                free_pages = 0
+                inactive_pages = 0
+                page_size = 16384  # default on Apple Silicon
+                for line in result.stdout.splitlines():
+                    if "page size of" in line:
+                        try:
+                            page_size = int(line.split()[-2])
+                        except (ValueError, IndexError):
+                            pass
+                    elif "Pages free:" in line:
+                        free_pages = int(line.split()[-1].rstrip("."))
+                    elif "Pages inactive:" in line:
+                        inactive_pages = int(line.split()[-1].rstrip("."))
+                avail_bytes = (free_pages + inactive_pages) * page_size
+                return round(avail_bytes / (1024**3), 1)
+    except Exception:
+        pass
+    return None
+
+
+def _get_physical_cores(system: str, logical_count: int) -> int:
+    """Get physical core count (as opposed to logical/thread count)."""
+    try:
+        if system == "Darwin":
+            result = subprocess.run(
+                ["sysctl", "-n", "hw.physicalcpu"],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                return int(result.stdout.strip())
+        elif system == "Linux":
+            # Count unique physical core ids
+            result = subprocess.run(
+                ["lscpu"],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                for line in result.stdout.splitlines():
+                    if line.startswith("Core(s) per socket:"):
+                        cores_per = int(line.split(":")[-1].strip())
+                    elif line.startswith("Socket(s):"):
+                        sockets = int(line.split(":")[-1].strip())
+                try:
+                    return cores_per * sockets  # noqa: F821 (set above)
+                except NameError:
+                    pass
+    except Exception:
+        pass
+    return logical_count
+
+
+def _get_numa_nodes(system: str) -> int | None:
+    """Detect NUMA node count (Linux only)."""
+    if system != "Linux":
+        return None
+    try:
+        node_dir = Path("/sys/devices/system/node")
+        if node_dir.exists():
+            nodes = [d for d in node_dir.iterdir() if d.name.startswith("node")]
+            if nodes:
+                return len(nodes)
+    except Exception:
+        pass
+    return None
+
+
+def _get_cpu_governor(system: str) -> str | None:
+    """Read CPU frequency governor (Linux only)."""
+    if system != "Linux":
+        return None
+    try:
+        gov_path = Path("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor")
+        if gov_path.exists():
+            return gov_path.read_text().strip()
+    except Exception:
+        pass
+    return None
+
+
+def _get_swap_gb(system: str) -> float | None:
+    """Get swap size in GB."""
+    try:
+        if system == "Linux":
+            with open("/proc/meminfo") as f:
+                for line in f:
+                    if line.startswith("SwapTotal:"):
+                        kb = int(line.split()[1])
+                        return round(kb / (1024 * 1024), 1)
+        elif system == "Darwin":
+            result = subprocess.run(
+                ["sysctl", "-n", "vm.swapusage"],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                # Output: "total = 1024.00M  used = 0.00M  free = 1024.00M ..."
+                for part in result.stdout.split():
+                    if part.endswith("M") and "=" not in part:
+                        # First numeric value after "total =" is total swap
+                        try:
+                            return round(float(part.rstrip("M")) / 1024, 1)
+                        except ValueError:
+                            continue
+                # Fallback: parse "total = X.XXM"
+                text = result.stdout
+                if "total" in text:
+                    idx = text.index("total")
+                    segment = text[idx:idx + 40]
+                    for token in segment.split():
+                        if token.endswith("M"):
+                            try:
+                                return round(float(token.rstrip("M")) / 1024, 1)
+                            except ValueError:
+                                continue
+    except Exception:
+        pass
+    return None
+
+
+def _detect_container() -> bool:
+    """Detect if running inside a container (Docker/Podman/LXC)."""
+    # Check for /.dockerenv
+    if Path("/.dockerenv").exists():
+        return True
+    # Check cgroup for docker/lxc markers
+    try:
+        cgroup_path = Path("/proc/1/cgroup")
+        if cgroup_path.exists():
+            text = cgroup_path.read_text()
+            if "docker" in text or "lxc" in text or "containerd" in text:
+                return True
+    except Exception:
+        pass
+    # Check for container env variable
+    if os.environ.get("container"):
+        return True
+    return False
+
+
+def _get_cgroup_memory_limit_gb() -> float | None:
+    """Get cgroup memory limit in GB (Linux containers)."""
+    try:
+        # cgroup v2
+        limit_path = Path("/sys/fs/cgroup/memory.max")
+        if limit_path.exists():
+            text = limit_path.read_text().strip()
+            if text != "max":
+                return round(int(text) / (1024**3), 1)
+        # cgroup v1
+        limit_path = Path("/sys/fs/cgroup/memory/memory.limit_in_bytes")
+        if limit_path.exists():
+            value = int(limit_path.read_text().strip())
+            # Values near maxint mean unlimited
+            if value < 2**62:
+                return round(value / (1024**3), 1)
+    except Exception:
+        pass
+    return None
