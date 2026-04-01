@@ -5,6 +5,8 @@ Usage:
     xraybench validate <path>                Validate a benchmark spec or result
     xraybench run <path> --engine <name>     Run a benchmark
     xraybench load-test --engine <name>      Run a load test
+    xraybench generate --generator <name> --name <name>  Generate a synthetic dataset
+    xraybench verify-dataset --type <type> --name <name> Verify a dataset
 """
 
 from __future__ import annotations
@@ -76,6 +78,51 @@ def main(argv: list[str] | None = None) -> int:
         help="Parameter override in key=value format (repeatable)",
     )
 
+    # generate command
+    gen_parser = subparsers.add_parser(
+        "generate", help="Generate a synthetic benchmark dataset"
+    )
+    gen_parser.add_argument(
+        "--generator",
+        required=True,
+        choices=["chain", "hub", "power_law", "deep_traversal"],
+        help="Generator function to use",
+    )
+    gen_parser.add_argument(
+        "--name", required=True, help="Dataset name (used as directory name)"
+    )
+    gen_parser.add_argument(
+        "--param",
+        action="append",
+        default=[],
+        help="Parameter in key=value format (repeatable)",
+    )
+    gen_parser.add_argument(
+        "--data-dir",
+        default="/data/xraybench",
+        help="Override data directory (default: /data/xraybench)",
+    )
+
+    # verify-dataset command
+    vd_parser = subparsers.add_parser(
+        "verify-dataset", help="Verify the integrity of a dataset"
+    )
+    vd_parser.add_argument(
+        "--type",
+        required=True,
+        choices=["synthetic", "snap", "ogb"],
+        help="Dataset type",
+        dest="dataset_type",
+    )
+    vd_parser.add_argument(
+        "--name", required=True, help="Dataset name"
+    )
+    vd_parser.add_argument(
+        "--data-dir",
+        default="/data/xraybench",
+        help="Override data directory (default: /data/xraybench)",
+    )
+
     # load-test command
     lt_parser = subparsers.add_parser("load-test", help="Run a load test")
     lt_parser.add_argument("--engine", required=True, help="Engine adapter name")
@@ -118,6 +165,10 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_run(args)
     elif args.command == "load-test":
         return _cmd_load_test(args)
+    elif args.command == "generate":
+        return _cmd_generate(args)
+    elif args.command == "verify-dataset":
+        return _cmd_verify_dataset(args)
 
     return 0
 
@@ -295,6 +346,84 @@ def _cmd_load_test(args: argparse.Namespace) -> int:
         return 0
     except Exception as e:
         logging.getLogger(__name__).error("Load test failed: %s", e)
+        return 1
+
+
+def _parse_param_value(value: str) -> "int | float | list[int] | str":
+    """Auto-detect and convert a string value to an appropriate Python type.
+
+    Handles:
+    - ``[5,3]`` or ``[5, 3]``  -> list of ints
+    - Integer strings           -> int
+    - Float strings             -> float
+    - Everything else           -> str
+    """
+    stripped = value.strip()
+    if stripped.startswith("[") and stripped.endswith("]"):
+        inner = stripped[1:-1]
+        parts = [p.strip() for p in inner.split(",")]
+        try:
+            return [int(p) for p in parts]
+        except ValueError:
+            return stripped
+    try:
+        return int(stripped)
+    except ValueError:
+        pass
+    try:
+        return float(stripped)
+    except ValueError:
+        pass
+    return stripped
+
+
+def _cmd_generate(args: argparse.Namespace) -> int:
+    """Generate a synthetic benchmark dataset."""
+    from tools.xraybench.dataset_manager import DatasetManager
+
+    # Parse --param key=value pairs
+    params: dict[str, "int | float | list[int] | str"] = {}
+    for item in args.param:
+        if "=" not in item:
+            print(f"Invalid --param format: {item!r} (expected key=value)")
+            return 1
+        key, raw_value = item.split("=", 1)
+        params[key.strip()] = _parse_param_value(raw_value)
+
+    manager = DatasetManager(data_dir=args.data_dir)
+    try:
+        manifest = manager.generate_synthetic(
+            name=args.name,
+            generator=args.generator,
+            params=params,
+        )
+    except Exception as e:
+        logging.getLogger(__name__).error("Generation failed: %s", e)
+        return 1
+
+    dataset_dir = manager.data_dir / "synthetic" / args.name
+    print(f"Generated dataset: {args.name}")
+    print(f"  Generator : {args.generator}")
+    print(f"  Nodes     : {manifest['node_count']}")
+    print(f"  Edges     : {manifest['edge_count']}")
+    print(f"  Path      : {dataset_dir}")
+    return 0
+
+
+def _cmd_verify_dataset(args: argparse.Namespace) -> int:
+    """Verify the integrity of a dataset."""
+    from tools.xraybench.dataset_manager import DatasetManager
+
+    manager = DatasetManager(data_dir=args.data_dir)
+    result = manager.verify(dataset_type=args.dataset_type, name=args.name)
+
+    if result["valid"]:
+        print(f"VALID: {args.name} ({args.dataset_type})")
+        return 0
+    else:
+        print(f"INVALID: {args.name} ({args.dataset_type})")
+        for error in result["errors"]:
+            print(f"  - {error}")
         return 1
 
 
