@@ -130,7 +130,11 @@ impl CusumDetector {
         let h = if self.baseline_stddev > 1e-9 {
             self.config.threshold_sigma * self.baseline_stddev
         } else {
-            (self.config.threshold_sigma * self.config.drift_fraction * self.baseline_mean.abs() * 0.1).max(1e-9)
+            (self.config.threshold_sigma
+                * self.config.drift_fraction
+                * self.baseline_mean.abs()
+                * 0.1)
+                .max(1e-9)
         };
 
         // Update CUSUM relative to baseline mean

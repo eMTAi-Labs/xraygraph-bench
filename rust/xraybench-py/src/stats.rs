@@ -1,31 +1,28 @@
-use pyo3::prelude::*;
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
+use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use xraybench_stats::{
-    bca_mean_ci, descriptive, detect_outliers, exact_percentile, exact_percentiles,
-    mann_whitney_u, BootstrapConfig,
+    bca_mean_ci, descriptive, detect_outliers, exact_percentile, exact_percentiles, mann_whitney_u,
+    BootstrapConfig,
 };
 
 /// Compute the p-th percentile (p in [0,1]) of a list of values.
 #[pyfunction]
 pub fn percentile(mut values: Vec<f64>, p: f64) -> PyResult<f64> {
-    exact_percentile(&mut values, p)
-        .map_err(|e| PyValueError::new_err(e.to_string()))
+    exact_percentile(&mut values, p).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 /// Compute multiple percentiles in a single pass. ps must each be in [0,1].
 #[pyfunction]
 pub fn percentiles(mut values: Vec<f64>, ps: Vec<f64>) -> PyResult<Vec<f64>> {
-    exact_percentiles(&mut values, &ps)
-        .map_err(|e| PyValueError::new_err(e.to_string()))
+    exact_percentiles(&mut values, &ps).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 /// Compute descriptive statistics (count, mean, min, max, variance, stddev).
 #[pyfunction]
 #[pyo3(name = "descriptive")]
 pub fn descriptive_stats(py: Python<'_>, values: Vec<f64>) -> PyResult<PyObject> {
-    let s = descriptive(&values)
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let s = descriptive(&values).map_err(|e| PyValueError::new_err(e.to_string()))?;
 
     let dict = PyDict::new_bound(py);
     dict.set_item("count", s.count)?;
@@ -52,8 +49,7 @@ pub fn bootstrap_ci(
         n_resamples,
         seed,
     };
-    let ci = bca_mean_ci(&values, config)
-        .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+    let ci = bca_mean_ci(&values, config).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
 
     let dict = PyDict::new_bound(py);
     dict.set_item("lower", ci.lower)?;
@@ -68,13 +64,9 @@ pub fn bootstrap_ci(
 /// Detect outliers using the Modified Z-Score method.
 #[pyfunction]
 #[pyo3(name = "detect_outliers", signature = (values, threshold=3.5))]
-pub fn detect_outliers_py(
-    py: Python<'_>,
-    values: Vec<f64>,
-    threshold: f64,
-) -> PyResult<PyObject> {
-    let result = detect_outliers(&values, threshold)
-        .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+pub fn detect_outliers_py(py: Python<'_>, values: Vec<f64>, threshold: f64) -> PyResult<PyObject> {
+    let result =
+        detect_outliers(&values, threshold).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
 
     let dict = PyDict::new_bound(py);
     dict.set_item("outlier_indices", result.outlier_indices)?;
@@ -86,13 +78,9 @@ pub fn detect_outliers_py(
 
 /// Run a two-sided Mann-Whitney U test.
 #[pyfunction]
-pub fn mann_whitney(
-    py: Python<'_>,
-    sample_a: Vec<f64>,
-    sample_b: Vec<f64>,
-) -> PyResult<PyObject> {
-    let result = mann_whitney_u(&sample_a, &sample_b)
-        .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+pub fn mann_whitney(py: Python<'_>, sample_a: Vec<f64>, sample_b: Vec<f64>) -> PyResult<PyObject> {
+    let result =
+        mann_whitney_u(&sample_a, &sample_b).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
 
     let dict = PyDict::new_bound(py);
     dict.set_item("u_a", result.u_a)?;

@@ -122,9 +122,6 @@ mod tests {
     fn clock_reasonable_magnitude() {
         let t = monotonic_ns().expect("clock");
         // Should be > 1 billion ns (1 second since system epoch / boot)
-        assert!(
-            t > 1_000_000_000,
-            "clock magnitude unreasonably small: {t}"
-        );
+        assert!(t > 1_000_000_000, "clock magnitude unreasonably small: {t}");
     }
 }

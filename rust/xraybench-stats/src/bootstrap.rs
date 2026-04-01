@@ -1,6 +1,6 @@
 use rand::Rng;
-use rand_chacha::ChaCha20Rng;
 use rand::SeedableRng;
+use rand_chacha::ChaCha20Rng;
 use xraybench_types::{BenchError, Result};
 
 // ── Config & Result types ─────────────────────────────────────────────────────
@@ -70,7 +70,12 @@ pub fn bca_mean_ci(data: &[f64], config: BootstrapConfig) -> Result<BootstrapCI>
     // ── Step 3: Acceleration via jackknife ────────────────────────────────────
     let jk_means: Vec<f64> = (0..n)
         .map(|i| {
-            let s: f64 = data.iter().enumerate().filter(|&(j, _)| j != i).map(|(_,&v)| v).sum();
+            let s: f64 = data
+                .iter()
+                .enumerate()
+                .filter(|&(j, _)| j != i)
+                .map(|(_, &v)| v)
+                .sum();
             s / (n - 1) as f64
         })
         .collect();
@@ -142,17 +147,8 @@ pub fn normal_cdf(x: f64) -> f64 {
 /// by Beasley-Springer-Moro.
 pub fn normal_ppf(p: f64) -> f64 {
     // Coefficients for the central region
-    const A: [f64; 4] = [
-        2.515_517,
-        0.802_853,
-        0.010_328,
-        0.0,
-    ];
-    const B: [f64; 3] = [
-        1.432_788,
-        0.189_269,
-        0.001_308,
-    ];
+    const A: [f64; 4] = [2.515_517, 0.802_853, 0.010_328, 0.0];
+    const B: [f64; 3] = [1.432_788, 0.189_269, 0.001_308];
 
     if p <= 0.0 {
         return f64::NEG_INFINITY;
@@ -207,7 +203,11 @@ mod tests {
         // very low-variance data → CI width < 0.2
         let data: Vec<f64> = vec![10.0; 100];
         let ci = bca_mean_ci(&data, BootstrapConfig::default()).unwrap();
-        assert!((ci.upper - ci.lower) < 0.2, "CI width = {}", ci.upper - ci.lower);
+        assert!(
+            (ci.upper - ci.lower) < 0.2,
+            "CI width = {}",
+            ci.upper - ci.lower
+        );
     }
 
     #[test]
@@ -221,8 +221,14 @@ mod tests {
     #[test]
     fn reproducible() {
         let data: Vec<f64> = (1..=50).map(|i| i as f64).collect();
-        let cfg1 = BootstrapConfig { seed: 123, ..Default::default() };
-        let cfg2 = BootstrapConfig { seed: 123, ..Default::default() };
+        let cfg1 = BootstrapConfig {
+            seed: 123,
+            ..Default::default()
+        };
+        let cfg2 = BootstrapConfig {
+            seed: 123,
+            ..Default::default()
+        };
         let ci1 = bca_mean_ci(&data, cfg1).unwrap();
         let ci2 = bca_mean_ci(&data, cfg2).unwrap();
         assert_eq!(ci1.lower, ci2.lower);
@@ -238,10 +244,17 @@ mod tests {
     #[test]
     fn normal_ppf_standard_values() {
         // Φ⁻¹(0.5) = 0
-        assert!((normal_ppf(0.5)).abs() < 0.01, "ppf(0.5)={}", normal_ppf(0.5));
+        assert!(
+            (normal_ppf(0.5)).abs() < 0.01,
+            "ppf(0.5)={}",
+            normal_ppf(0.5)
+        );
         // Φ⁻¹(0.975) ≈ 1.96
-        assert!((normal_ppf(0.975) - 1.96).abs() < 0.01,
-            "ppf(0.975)={}", normal_ppf(0.975));
+        assert!(
+            (normal_ppf(0.975) - 1.96).abs() < 0.01,
+            "ppf(0.975)={}",
+            normal_ppf(0.975)
+        );
     }
 
     #[test]

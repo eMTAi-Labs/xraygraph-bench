@@ -11,7 +11,8 @@ pub fn median_u64(sorted: &[u64]) -> u64 {
         n => {
             let mid = n / 2;
             // Average of two middle elements, rounding down
-            (sorted[mid - 1] / 2) + (sorted[mid] / 2)
+            (sorted[mid - 1] / 2)
+                + (sorted[mid] / 2)
                 + ((sorted[mid - 1] % 2 + sorted[mid] % 2) / 2)
         }
     }

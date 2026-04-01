@@ -1,5 +1,5 @@
-use xraybench_types::{MetricComparison, Result};
 use xraybench_stats::regression::compare_metric;
+use xraybench_types::{MetricComparison, Result};
 
 /// Compare two sets of named metrics.  Metrics are matched by name; unmatched
 /// names are silently skipped.
@@ -31,8 +31,8 @@ pub fn diff_results(
 pub fn format_comparison(cmp: &MetricComparison) -> String {
     let arrow = match cmp.classification {
         xraybench_types::ChangeClass::Improvement => "↓",
-        xraybench_types::ChangeClass::Regression  => "↑",
-        xraybench_types::ChangeClass::NoChange     => "~",
+        xraybench_types::ChangeClass::Regression => "↑",
+        xraybench_types::ChangeClass::NoChange => "~",
         xraybench_types::ChangeClass::Inconclusive => "?",
     };
     let class_word = format!("{:?}", cmp.classification);
@@ -91,7 +91,10 @@ mod tests {
             "clearly different samples should be significant; p={}",
             cmps[0].p_value
         );
-        assert_eq!(cmps[0].classification, xraybench_types::ChangeClass::Improvement);
+        assert_eq!(
+            cmps[0].classification,
+            xraybench_types::ChangeClass::Improvement
+        );
     }
 
     #[test]
@@ -115,12 +118,18 @@ mod tests {
         let b: &[(&str, &[f64])] = &[("cold_ms", &b_vals)];
         let cmps = diff_results(a, b, 0.05).unwrap();
         let line = format_comparison(&cmps[0]);
-        assert!(line.contains("cold_ms"), "output should contain metric name: {line}");
+        assert!(
+            line.contains("cold_ms"),
+            "output should contain metric name: {line}"
+        );
         // The classification word should appear (e.g. "Improvement" or "NoChange")
         let has_class = line.contains("Improvement")
             || line.contains("Regression")
             || line.contains("NoChange")
             || line.contains("Inconclusive");
-        assert!(has_class, "output should contain classification word: {line}");
+        assert!(
+            has_class,
+            "output should contain classification word: {line}"
+        );
     }
 }

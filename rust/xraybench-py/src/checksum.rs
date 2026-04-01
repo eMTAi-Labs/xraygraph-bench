@@ -1,7 +1,7 @@
-use pyo3::prelude::*;
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
+use pyo3::prelude::*;
+use xraybench_checksum::{float_eq_ulp, hash_result_set, verify_hash};
 use xraybench_types::PropertyValue;
-use xraybench_checksum::{hash_result_set, verify_hash, float_eq_ulp};
 
 /// Convert a Python value to a PropertyValue.
 /// Important: check bool BEFORE int because Python bool is an int subclass.
@@ -28,15 +28,9 @@ pub fn py_to_property(val: &Bound<'_, PyAny>) -> PyResult<PropertyValue> {
     )))
 }
 
-fn py_rows_to_rust(
-    rows: Vec<Vec<Bound<'_, PyAny>>>,
-) -> PyResult<Vec<Vec<PropertyValue>>> {
+fn py_rows_to_rust(rows: Vec<Vec<Bound<'_, PyAny>>>) -> PyResult<Vec<Vec<PropertyValue>>> {
     rows.iter()
-        .map(|row| {
-            row.iter()
-                .map(py_to_property)
-                .collect::<PyResult<Vec<_>>>()
-        })
+        .map(|row| row.iter().map(py_to_property).collect::<PyResult<Vec<_>>>())
         .collect()
 }
 
@@ -53,8 +47,7 @@ pub fn hash_result_set_py(rows: Vec<Vec<Bound<'_, PyAny>>>) -> PyResult<String> 
 #[pyo3(name = "verify_hash")]
 pub fn verify_hash_py(rows: Vec<Vec<Bound<'_, PyAny>>>, reference: String) -> PyResult<bool> {
     let rust_rows = py_rows_to_rust(rows)?;
-    verify_hash(&rust_rows, &reference)
-        .map_err(|e| PyRuntimeError::new_err(e.to_string()))
+    verify_hash(&rust_rows, &reference).map_err(|e| PyRuntimeError::new_err(e.to_string()))
 }
 
 /// Compare two floats within max_ulp units in the last place.

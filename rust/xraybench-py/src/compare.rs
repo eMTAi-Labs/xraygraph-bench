@@ -1,5 +1,5 @@
-use pyo3::prelude::*;
 use pyo3::exceptions::PyRuntimeError;
+use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use xraybench_stats::regression::compare_metric as rs_compare_metric;
 

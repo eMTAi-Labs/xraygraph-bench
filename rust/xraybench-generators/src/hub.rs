@@ -36,7 +36,7 @@ mod tests {
     fn correct_counts() {
         let (node_count, edges) = generate_hub_graph(5, 10, 42);
         assert_eq!(node_count, 5 + 5 * 10); // 55 nodes
-        assert_eq!(edges.len(), 5 * 10);    // 50 edges
+        assert_eq!(edges.len(), 5 * 10); // 50 edges
     }
 
     #[test]

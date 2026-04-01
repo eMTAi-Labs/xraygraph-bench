@@ -1,6 +1,6 @@
 pub mod diff;
-pub mod significance;
 pub mod matrix;
+pub mod significance;
 
 pub use diff::{diff_results, format_comparison};
 pub use matrix::{pairwise_matrix, PairwiseComparison};
