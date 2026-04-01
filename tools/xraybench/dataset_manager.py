@@ -8,7 +8,6 @@ verification.
 from __future__ import annotations
 
 import hashlib
-import os
 from pathlib import Path
 from typing import Any
 
@@ -102,6 +101,85 @@ class DatasetManager:
                 },
             },
         }
+
+        manifest_path = out_dir / "manifest.yaml"
+        with open(manifest_path, "w") as f:
+            yaml.dump(manifest, f, default_flow_style=False, sort_keys=False)
+
+        return manifest
+
+    def ingest_edge_list(
+        self,
+        name: str,
+        dataset_type: str,
+        edge_list_path: str | Path,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Ingest a SNAP-format edge-list file and write it to disk.
+
+        Reads a text edge-list file (tab or space separated, # comment lines
+        ignored), parses all edges, derives unique node IDs, writes edges.bin
+        and edges.csv, and produces a manifest.yaml with SHA-256 checksums.
+
+        Args:
+            name: Dataset name (used as directory name).
+            dataset_type: Dataset category (e.g. 'snap').
+            edge_list_path: Path to the SNAP-format text edge-list file.
+            metadata: Optional dict with keys 'description' and/or 'source'.
+
+        Returns:
+            The manifest dict that was written to manifest.yaml.
+        """
+        edge_list_path = Path(edge_list_path)
+        out_dir = self.data_dir / dataset_type / name
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        edges: list[tuple[int, int]] = []
+        node_ids: set[int] = set()
+
+        with open(edge_list_path) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                parts = line.split()
+                if len(parts) < 2:
+                    continue
+                src, dst = int(parts[0]), int(parts[1])
+                edges.append((src, dst))
+                node_ids.add(src)
+                node_ids.add(dst)
+
+        bin_path = out_dir / "edges.bin"
+        csv_path = out_dir / "edges.csv"
+        generators.write_edges_binary(edges, str(bin_path))
+        generators.write_edges_csv(edges, str(csv_path))
+
+        meta = metadata or {}
+        manifest: dict[str, Any] = {
+            "name": name,
+            "version": "1.0",
+            "type": dataset_type,
+            "description": meta.get("description", ""),
+            "format": "edge-list",
+            "node_count": len(node_ids),
+            "edge_count": len(edges),
+            "labels": ["Node"],
+            "edge_types": ["EDGE"],
+            "files": {
+                "edges.bin": {
+                    "sha256": _file_sha256(bin_path),
+                    "size_bytes": bin_path.stat().st_size,
+                },
+                "edges.csv": {
+                    "sha256": _file_sha256(csv_path),
+                    "size_bytes": csv_path.stat().st_size,
+                },
+            },
+        }
+
+        if "source" in meta:
+            manifest["source"] = meta["source"]
 
         manifest_path = out_dir / "manifest.yaml"
         with open(manifest_path, "w") as f:
