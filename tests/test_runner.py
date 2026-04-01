@@ -5,10 +5,8 @@ Uses mock adapters so no running engine is required.
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 from typing import Any
-
-import pytest
 
 from tools.xraybench.runner import BenchmarkRunner
 from tools.xraybench.models import (
