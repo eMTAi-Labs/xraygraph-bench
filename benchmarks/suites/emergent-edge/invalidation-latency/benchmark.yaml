@@ -1,0 +1,114 @@
+name: invalidation-latency
+family: emergent-edge
+version: "1.0.0"
+tier: B
+status: published
+query_language: cypher
+description: >
+  Measures the cost of emergent edge invalidation when the underlying graph
+  changes. The benchmark has three phases: (1) warm up the emergent edge cache
+  by executing repeated traversals, (2) mutate the graph in the traversal's
+  scope, (3) measure the latency impact on subsequent reads. This exposes the
+  end-to-end invalidation pipeline: MutationBitmap → ScopeTagIndex AND →
+  revalidation queue → background thread → cache eviction/update.
+
+  Critical measurements: (a) write-path overhead — does the CommitInvalidation
+  Hook add measurable latency to graph mutations? (b) read-path freshness gate
+  — does the bitmap compare add measurable latency to cache hits? (c) recovery
+  time — how many queries after mutation before the cache is warm again?
+  (d) correctness — does the first read after mutation return the updated
+  result, never the stale cached result?
+
+citation: >
+  xrayGraphDB Emergent Edge Lifecycle patent — Phase 6 INVALIDATE (260).
+  Write-propagated scope tags with belt-and-suspenders correctness.
+
+dataset:
+  name: synthetic-deep-traversal
+  type: synthetic
+  generator: deep_traversal
+  generator_params:
+    num_roots: 3
+    fanout_per_level: [4, 4, 3, 3, 2, 2, 2, 2, 2, 2]
+    seed: 42
+
+query_template: >
+  MATCH (start:DT {id: $seed_id})-[:E*$hop_depth]->(target)
+  RETURN count(target) AS reachable_count
+
+parameters:
+  seed_id:
+    type: integer
+    default: 0
+    min: 0
+    max: 2
+    description: >
+      Root node to start traversal from.
+  hop_depth:
+    type: integer
+    default: 3
+    min: 1
+    max: 7
+    description: >
+      Traversal depth. Use a moderate depth — deep enough to produce
+      emergent edges but shallow enough that base traversal completes quickly.
+  warmup_iterations:
+    type: integer
+    default: 200
+    min: 50
+    max: 1000
+    description: >
+      Number of read iterations to warm the emergent edge cache before
+      starting the mutation phase.
+  mutation_count:
+    type: integer
+    default: 10
+    min: 1
+    max: 100
+    description: >
+      Number of graph mutations to perform in the scope of the traversal.
+      Mutations add or remove edges on nodes in the traversal path.
+  post_mutation_reads:
+    type: integer
+    default: 100
+    min: 10
+    max: 1000
+    description: >
+      Number of read iterations after mutation to measure recovery.
+
+correctness_oracle:
+  type: invariant
+  description: >
+    After mutation, the first read must reflect the updated graph state.
+    If the emergent edge cache serves stale data after a mutation that
+    touches the traversal scope, this is a correctness failure.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - compile_ms
+  - rows_out
+  - cache_hit
+  - fallback
+
+tags:
+  - emergent-edge
+  - tier-b
+  - invalidation
+  - correctness
+  - write-read-interaction
+
+warm_runs: 200
+timeout_seconds: 600
+
+notes: >
+  Tier B benchmark — xrayGraphDB only. Three-phase benchmark:
+  Phase 1: Warm cache with repeated reads (warmup_iterations).
+  Phase 2: Mutate graph within traversal scope (mutation_count mutations).
+  Phase 3: Read again and measure recovery (post_mutation_reads).
+
+  Key output: (1) write_overhead_ms — added latency per mutation from
+  CommitInvalidationHook, (2) first_read_after_mutation_ms — latency of
+  the first read after invalidation (should be base cost, not cached),
+  (3) recovery_iterations — reads until cache is warm again,
+  (4) stale_reads — count of reads returning pre-mutation results (must be 0).
