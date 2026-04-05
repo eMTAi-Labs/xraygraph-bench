@@ -5,18 +5,21 @@ tier: B
 status: published
 query_language: cypher
 description: >
-  Quantifies the cold-start tax of the emergent edge system. Before the engine
-  has observed enough query repetitions to synthesize shortcuts (cold_start_min
-  observations + promotion_reuse_min), every query pays full base traversal
-  cost. This benchmark measures: (1) total cold-start cost — cumulative latency
-  of the first N queries before any optimization kicks in, (2) break-even
-  point — after how many total queries does the cumulative time-saved by
-  emergent edges exceed the cumulative cold-start cost, (3) amortization
-  rate — how quickly the optimization pays for itself.
+  Quantifies the cold-start behavior of the emergent edge system's three
+  cache tiers. The key insight: Tier 2 (session cache) activates after a
+  SINGLE execution via the fast path (exact signature memoization), while
+  Tier 3 (materialized persistent) requires 100+ reuse observations for
+  promotion. This benchmark measures the three-phase cold start:
+  (1) first execution — full base cost, observation captured,
+  (2) second execution onward — Tier 2 session cache may hit (fast path),
+  (3) after promotion_reuse_min executions — Tier 3 materialized shortcut.
 
-  This is critical for workloads where the same query runs infrequently.
-  If the break-even point is 500 iterations but the query only runs 100 times,
-  the emergent edge system adds overhead without net benefit.
+  The benchmark captures: (a) time-to-first-cache-hit — should be iteration 2
+  if Tier 2 activates immediately, (b) Tier 2 vs Tier 3 latency difference —
+  Tier 2 is memoization, Tier 3 is structural shortcut with richer optimization,
+  (c) break-even point — cumulative time-saved vs overhead, (d) amortization
+  rate for infrequent queries (if the query only runs 10 times, does Tier 2
+  alone provide net benefit?).
 
 citation: >
   xrayGraphDB Emergent Edge Lifecycle patent. Cold start analysis methodology
