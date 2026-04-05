@@ -52,10 +52,11 @@ class TestTimeSeriesDetectsAcceleration:
     """test_timeseries_detects_acceleration: last-20 mean < first-20 mean * 0.8."""
 
     def test_timeseries_detects_acceleration(self):
-        # Slow for first 20 calls, fast for remaining 80
+        # Slow for first 20 calls (2ms sleep), fast for remaining 40
+        import time
+
         call_count = 0
-        slow_result = ExecuteResult(rows=[{"x": 1}], wall_ms=100.0)
-        fast_result = ExecuteResult(rows=[{"x": 1}], wall_ms=1.0)
+        result_obj = ExecuteResult(rows=[{"x": 1}], wall_ms=1.0)
 
         adapter = MagicMock(spec=BaseAdapter)
         adapter.clear_caches.return_value = CacheClearReport(cleared=True)
@@ -64,21 +65,21 @@ class TestTimeSeriesDetectsAcceleration:
             nonlocal call_count
             call_count += 1
             if call_count <= 20:
-                return slow_result
-            return fast_result
+                time.sleep(0.003)  # 3ms — measurable
+            return result_obj
 
         adapter.execute.side_effect = side_effect
 
         runner = TimeSeriesRunner(adapter)
-        result = runner.run_timeseries("MATCH (n) RETURN n", iterations=100)
+        result = runner.run_timeseries("MATCH (n) RETURN n", iterations=60)
 
         real = [v for v in result.latencies_ms if v is not None]
-        assert len(real) == 100
+        assert len(real) == 60
 
         first_20_mean = sum(real[:20]) / 20
         last_20_mean = sum(real[-20:]) / 20
 
-        assert last_20_mean < first_20_mean * 0.8
+        assert last_20_mean < first_20_mean * 0.5
 
 
 class TestTimeSeriesCorrectnessPasses:
