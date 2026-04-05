@@ -9,10 +9,18 @@ description: >
   engine observes repeated traversal patterns, detects structural shortcuts,
   validates them, and deploys them to the cache. The same deep traversal query
   is executed N times sequentially. The time-series of latencies should show
-  distinct phases: (1) base cost during cold start, (2) a transition period
-  as the engine observes and synthesizes, (3) accelerated execution once
-  shortcuts are deployed. The shape of this curve — how many iterations before
-  acceleration, how large the speedup — is the primary measurement.
+  distinct phases: (1) first execution at full base cost, (2) Tier 2 session
+  cache activation on the second execution (fast-path memoization), (3) a
+  transition period as the detect phase identifies structural patterns, (4)
+  accelerated execution once Tier 3 materialized shortcuts are deployed.
+
+  For deep traversals (10-hop), the engine uses PROGRESSIVE BOOTSTRAPPING:
+  timed-out traversals generate partial observations (frontier sizes, partial
+  paths). The detect phase synthesizes incremental shortcuts for reachable
+  depths (hops 1-6). On subsequent executions, these shortcuts extend the
+  reachable frontier, enabling hops 7-10 to complete. The benchmark should
+  capture this bootstrapping effect: a 10-hop query that initially times out
+  should eventually complete as the engine learns shortcuts level by level.
 
   This benchmark REQUIRES the emergent edge engine to be enabled on the target
   engine. On engines without workload-learned optimization, the curve should
@@ -96,7 +104,17 @@ timeout_seconds: 600
 notes: >
   Tier B benchmark — xrayGraphDB only. Requires emergent edge engine enabled.
   The runner should capture per-iteration latency as a time series, not just
-  summary statistics. Key output metrics: (1) iterations_to_acceleration —
-  how many repetitions before latency drops, (2) speedup_ratio — base_cost /
-  accelerated_cost, (3) learning_rate — slope of the transition region.
+  summary statistics. Key output metrics: (1) time_to_tier2 — should be
+  iteration 2 (fast-path memoization), (2) time_to_tier3 — iteration when
+  materialized shortcut deploys, (3) speedup_ratio — base_cost / optimized,
+  (4) learning_rate — slope of the transition region.
+
+  CRITICAL TEST — Progressive bootstrapping at hop_depth=10: Run with
+  timeout_seconds=30. Initial iterations may timeout. Track whether the
+  engine synthesizes incremental shortcuts (hops 1→6) from partial timeout
+  observations, enabling later iterations to reach hops 7→10. The benchmark
+  PASSES if a 10-hop query that initially timed out eventually completes.
+  This is the emergent edge system's "final boss" — turning timeouts into
+  cache hits through progressive learning.
+
   Compare with emergent edge engine disabled to isolate the optimization effect.

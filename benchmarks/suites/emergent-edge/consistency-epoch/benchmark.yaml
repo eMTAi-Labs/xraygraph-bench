@@ -13,10 +13,13 @@ description: >
   epoch by generating sufficient writes, then measures whether the sweep
   causes a latency spike for concurrent reads.
 
-  On a system with thousands of cached emergent edges, the epoch sweep
-  touches significant state. If it blocks the background thread for too
-  long, revalidation work backs up. If it touches shared memory structures,
-  it could cause cache contention on the read path.
+  The sweep is RATE-LIMITED (default 100 edges/sec) and AUTO-PAUSES if
+  query latency spikes above a configurable threshold. This means the
+  epoch should spread its work over time rather than blocking in a single
+  burst. The benchmark tests whether this rate-limiting is effective:
+  does the P99 read latency during an epoch sweep stay within acceptable
+  bounds, or does the sweep cause measurable degradation despite the
+  rate limiter?
 
 citation: >
   xrayGraphDB Emergent Edge Lifecycle patent — Section 5.3 Full Consistency
