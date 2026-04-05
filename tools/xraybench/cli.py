@@ -182,6 +182,35 @@ def main(argv: list[str] | None = None) -> int:
         help="Statistical confidence level (default: 0.95)",
     )
 
+    # run-emergent command
+    emergent_parser = subparsers.add_parser(
+        "run-emergent", help="Run an emergent-edge benchmark (learning-curve, invalidation, cold-start, mode-legality, consistency-epoch)"
+    )
+    emergent_parser.add_argument(
+        "--benchmark-type",
+        required=True,
+        choices=["learning-curve", "invalidation", "cold-start", "mode-legality", "consistency-epoch"],
+        help="Type of emergent benchmark to run",
+    )
+    emergent_parser.add_argument("--engine", required=True, help="Adapter name (e.g., xraygraphdb-native, xraygraphdb-bolt)")
+    emergent_parser.add_argument("--host", default="localhost", help="Engine host")
+    emergent_parser.add_argument("--port", type=int, default=7689, help="Engine port")
+    emergent_parser.add_argument("--username", default="", help="Engine username")
+    emergent_parser.add_argument("--password", default="", help="Engine password")
+    emergent_parser.add_argument("--query", required=True, help="Cypher/GFQL query to benchmark")
+    emergent_parser.add_argument("--iterations", type=int, default=500, help="Number of iterations (default: 500)")
+    emergent_parser.add_argument("--output", default=None, help="Output JSON file path")
+    emergent_parser.add_argument(
+        "--param",
+        action="append",
+        help="Query parameter in key=value format (repeatable)",
+    )
+    emergent_parser.add_argument(
+        "--mutation",
+        action="append",
+        help="Mutation query for invalidation benchmark (repeatable)",
+    )
+
     # dashboard command
     dash_parser = subparsers.add_parser(
         "dashboard", help="Start the interactive benchmark dashboard"
@@ -257,6 +286,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_compare(args)
     elif args.command == "dashboard":
         return _cmd_dashboard(args)
+    elif args.command == "run-emergent":
+        return _cmd_run_emergent(args)
 
     return 0
 
@@ -607,6 +638,103 @@ def _cmd_dashboard(args: argparse.Namespace) -> int:
         print(f"Error: {e}")
         return 1
     return 0
+
+
+def _cmd_run_emergent(args: argparse.Namespace) -> int:
+    """Run an emergent-edge benchmark."""
+    from tools.xraybench.adapters import get_adapter
+    import json
+
+    # Resolve adapter
+    adapter_cls = get_adapter(args.engine)
+    adapter = adapter_cls()
+    config = {
+        "host": args.host,
+        "port": args.port,
+        "username": args.username,
+        "password": args.password,
+    }
+    adapter.connect(config)
+
+    try:
+        benchmark_type = args.benchmark_type
+
+        if benchmark_type in ("learning-curve", "cold-start"):
+            from tools.xraybench.timeseries import TimeSeriesRunner
+            runner = TimeSeriesRunner(adapter)
+            result = runner.run_timeseries(
+                query=args.query,
+                iterations=args.iterations,
+                clear_cache_before=(benchmark_type == "cold-start"),
+            )
+            output = result.to_dict()
+            output["benchmark_type"] = benchmark_type
+
+            # Add acceleration analysis for learning-curve
+            if benchmark_type == "learning-curve":
+                accel = result.acceleration_point()
+                output["acceleration_point"] = accel
+                output["progressive_bootstrap"] = result.progressive_bootstrap_detected()
+
+        elif benchmark_type == "invalidation":
+            from tools.xraybench.phases import PhaseRunner, WarmupPhase, MutatePhase, MeasurePhase
+            runner = PhaseRunner(adapter)
+            runner.add_phase(WarmupPhase(query=args.query, iterations=args.iterations // 2))
+            mutations = args.mutation or []
+            if mutations:
+                runner.add_phase(MutatePhase(mutations=mutations))
+            runner.add_phase(MeasurePhase(query=args.query, iterations=args.iterations // 4))
+            results = runner.run()
+            output = PhaseRunner.results_to_dict(results)
+            output["benchmark_type"] = benchmark_type
+
+        elif benchmark_type == "consistency-epoch":
+            from tools.xraybench.phases import PhaseRunner, WarmupPhase, MutatePhase, MeasurePhase
+            runner = PhaseRunner(adapter)
+            runner.add_phase(WarmupPhase(query=args.query, iterations=args.iterations // 3))
+            # Generate writes to trigger consistency epoch
+            mutations = args.mutation or [f"CREATE ({{_bench_epoch: {i}}})" for i in range(100)]
+            runner.add_phase(MutatePhase(mutations=mutations))
+            runner.add_phase(MeasurePhase(query=args.query, iterations=args.iterations // 3))
+            results = runner.run()
+            output = PhaseRunner.results_to_dict(results)
+            output["benchmark_type"] = benchmark_type
+
+        elif benchmark_type == "mode-legality":
+            from tools.xraybench.timeseries import TimeSeriesRunner
+            runner = TimeSeriesRunner(adapter)
+            result = runner.run_timeseries(
+                query=args.query,
+                iterations=args.iterations,
+            )
+            output = result.to_dict()
+            output["benchmark_type"] = benchmark_type
+
+        else:
+            print(f"Unknown benchmark type: {benchmark_type}")
+            return 1
+
+        # Collect emergent edge metrics if available
+        from tools.xraybench.emergent_collector import EmergentEdgeCollector
+        collector = EmergentEdgeCollector(adapter)
+        ee_metrics = collector.collect_all()
+        if any(ee_metrics.get(k) for k in ("cache", "invalidation", "learning")):
+            output["emergent_edge_metrics"] = ee_metrics
+
+        # Output
+        if args.output:
+            from pathlib import Path
+            Path(args.output).parent.mkdir(parents=True, exist_ok=True)
+            with open(args.output, "w") as f:
+                json.dump(output, f, indent=2)
+            print(f"Results written to {args.output}")
+        else:
+            print(json.dumps(output, indent=2))
+
+        return 0
+
+    finally:
+        adapter.close()
 
 
 if __name__ == "__main__":
