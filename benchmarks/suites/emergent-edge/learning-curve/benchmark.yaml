@@ -1,0 +1,102 @@
+name: learning-curve
+family: emergent-edge
+version: "1.0.0"
+tier: B
+status: published
+query_language: cypher
+description: >
+  Measures the emergent edge learning curve — how query latency evolves as the
+  engine observes repeated traversal patterns, detects structural shortcuts,
+  validates them, and deploys them to the cache. The same deep traversal query
+  is executed N times sequentially. The time-series of latencies should show
+  distinct phases: (1) base cost during cold start, (2) a transition period
+  as the engine observes and synthesizes, (3) accelerated execution once
+  shortcuts are deployed. The shape of this curve — how many iterations before
+  acceleration, how large the speedup — is the primary measurement.
+
+  This benchmark REQUIRES the emergent edge engine to be enabled on the target
+  engine. On engines without workload-learned optimization, the curve should
+  be flat (no learning). The difference between a flat curve and a learning
+  curve is itself a benchmark result.
+
+citation: >
+  xrayGraphDB Emergent Edge Lifecycle patent (eMTAi LLC, 2026). Workload-learned
+  relationship optimization. Learning curve methodology inspired by online
+  learning theory — regret bounds for repeated queries.
+
+dataset:
+  name: synthetic-deep-traversal
+  type: synthetic
+  generator: deep_traversal
+  generator_params:
+    num_roots: 3
+    fanout_per_level: [4, 4, 3, 3, 2, 2, 2, 2, 2, 2]
+    seed: 42
+
+query_template: >
+  MATCH (start:DT {id: $seed_id})-[:E*$hop_depth]->(target)
+  RETURN count(target) AS reachable_count
+
+parameters:
+  seed_id:
+    type: integer
+    default: 0
+    min: 0
+    max: 2
+    description: >
+      Root node to start traversal from.
+  hop_depth:
+    type: integer
+    default: 5
+    min: 1
+    max: 10
+    description: >
+      Traversal depth. Higher values produce more expensive base queries,
+      giving the emergent edge engine more room to optimize.
+  total_iterations:
+    type: integer
+    default: 500
+    min: 100
+    max: 10000
+    description: >
+      Number of times to execute the same query sequentially.
+      Must be large enough to observe the full learning curve.
+  measurement_interval:
+    type: integer
+    default: 1
+    min: 1
+    max: 10
+    description: >
+      Record latency every N iterations. Set to 1 for full resolution.
+
+correctness_oracle:
+  type: invariant
+  description: >
+    Every execution must return the same reachable_count (the graph is not
+    being modified during the benchmark). If any execution returns a different
+    count, the emergent edge cache served stale or incorrect data.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - compile_ms
+  - rows_out
+  - cache_hit
+
+tags:
+  - emergent-edge
+  - tier-b
+  - learning-curve
+  - time-series
+  - optimization
+
+warm_runs: 500
+timeout_seconds: 600
+
+notes: >
+  Tier B benchmark — xrayGraphDB only. Requires emergent edge engine enabled.
+  The runner should capture per-iteration latency as a time series, not just
+  summary statistics. Key output metrics: (1) iterations_to_acceleration —
+  how many repetitions before latency drops, (2) speedup_ratio — base_cost /
+  accelerated_cost, (3) learning_rate — slope of the transition region.
+  Compare with emergent edge engine disabled to isolate the optimization effect.

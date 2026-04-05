@@ -1,0 +1,111 @@
+name: consistency-epoch
+family: emergent-edge
+version: "1.0.0"
+tier: B
+status: published
+query_language: cypher
+description: >
+  Measures the latency impact of the full consistency epoch sweep. After
+  every N non-empty commits (default 10,000), the emergent edge engine runs
+  a full sweep: rebuild label version counters from storage, walk the
+  ScopeTagIndex for bidirectional consistency, verify MutationBitmap
+  accounting, and audit cache memory. This benchmark forces a consistency
+  epoch by generating sufficient writes, then measures whether the sweep
+  causes a latency spike for concurrent reads.
+
+  On a system with thousands of cached emergent edges, the epoch sweep
+  touches significant state. If it blocks the background thread for too
+  long, revalidation work backs up. If it touches shared memory structures,
+  it could cause cache contention on the read path.
+
+citation: >
+  xrayGraphDB Emergent Edge Lifecycle patent — Section 5.3 Full Consistency
+  Epoch. Activity-driven, not timer-driven — triggered by write volume.
+
+dataset:
+  name: synthetic-deep-traversal
+  type: synthetic
+  generator: deep_traversal
+  generator_params:
+    num_roots: 3
+    fanout_per_level: [4, 4, 3, 3, 2, 2, 2, 2, 2, 2]
+    seed: 42
+
+query_template: >
+  MATCH (start:DT {id: $seed_id})-[:E*$hop_depth]->(target)
+  RETURN count(target) AS reachable_count
+
+parameters:
+  seed_id:
+    type: integer
+    default: 0
+    min: 0
+    max: 2
+    description: >
+      Root node for traversal.
+  hop_depth:
+    type: integer
+    default: 3
+    min: 2
+    max: 5
+    description: >
+      Shallow depth — we want fast base queries so the epoch impact is
+      visible as a percentage of execution time.
+  warmup_reads:
+    type: integer
+    default: 300
+    min: 100
+    max: 1000
+    description: >
+      Reads to warm the emergent edge cache before epoch trigger.
+  write_count:
+    type: integer
+    default: 10000
+    min: 1000
+    max: 100000
+    description: >
+      Number of non-empty writes to trigger the consistency epoch.
+      Must be >= consistency_epoch_interval (default 10,000).
+  concurrent_reads_during_epoch:
+    type: integer
+    default: 100
+    min: 10
+    max: 500
+    description: >
+      Number of reads to execute immediately after triggering the
+      epoch, to measure latency impact on concurrent queries.
+
+correctness_oracle:
+  type: invariant
+  description: >
+    All reads must return correct results, including reads that execute
+    during the consistency epoch. The epoch must not serve stale data
+    even temporarily.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - rows_out
+  - cache_hit
+
+tags:
+  - emergent-edge
+  - tier-b
+  - consistency-epoch
+  - latency-spike
+  - concurrent-read-write
+
+warm_runs: 300
+timeout_seconds: 1200
+
+notes: >
+  Tier B benchmark — xrayGraphDB only. Three-phase benchmark:
+  Phase 1: Warm cache (warmup_reads).
+  Phase 2: Generate write_count mutations to trigger consistency epoch.
+  Phase 3: Immediately execute concurrent_reads_during_epoch reads.
+
+  Key output: (1) pre_epoch_p50 — median read latency before epoch,
+  (2) during_epoch_p50 — median read latency during/after epoch trigger,
+  (3) epoch_spike_ratio — during_epoch_p50 / pre_epoch_p50 (> 1.0 = spike),
+  (4) epoch_duration_ms — time for the background thread to complete sweep,
+  (5) cache_hit_rate_during_epoch — fraction of reads that still hit cache.
