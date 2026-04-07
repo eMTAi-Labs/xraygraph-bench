@@ -252,6 +252,27 @@ def main(argv: list[str] | None = None) -> int:
     lt_parser.add_argument("--query", default="RETURN 1", help="Query to load test")
     lt_parser.add_argument("--output", help="Output file path for result JSON")
 
+    # smoke command
+    smoke_parser = subparsers.add_parser(
+        "smoke", help="Run smoke tests against a live xrayGraphDB instance"
+    )
+    smoke_parser.add_argument(
+        "--suite",
+        choices=["full", "multi-protocol", "both"],
+        default="both",
+        help="Smoke test suite to run (default: both)",
+    )
+    smoke_parser.add_argument("--host", default="127.0.0.1", help="Engine host")
+    smoke_parser.add_argument("--port", type=int, default=7687, help="Bolt port")
+    smoke_parser.add_argument("--ws-port", type=int, default=7688, help="WebSocket Bolt port")
+    smoke_parser.add_argument("--xray-port", type=int, default=7689, help="xrayProtocol port")
+    smoke_parser.add_argument("--user", default="admin", help="Username")
+    smoke_parser.add_argument("--password", default="", help="Password")
+    smoke_parser.add_argument(
+        "--use-neo4j", action="store_true",
+        help="Use neo4j driver for full smoke test (instead of mgclient)",
+    )
+
     args = parser.parse_args(argv)
 
     # Configure logging
@@ -288,6 +309,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_dashboard(args)
     elif args.command == "run-emergent":
         return _cmd_run_emergent(args)
+    elif args.command == "smoke":
+        return _cmd_smoke(args)
 
     return 0
 
@@ -735,6 +758,58 @@ def _cmd_run_emergent(args: argparse.Namespace) -> int:
 
     finally:
         adapter.close()
+
+
+def _cmd_smoke(args: argparse.Namespace) -> int:
+    """Run smoke tests against a live xrayGraphDB instance."""
+    import subprocess
+
+    base_dir = Path(__file__).parent / "smoke"
+    results = []
+
+    if args.suite in ("full", "both"):
+        print(f"\n{'='*60}")
+        print("  Running: Full Smoke Test")
+        print(f"{'='*60}\n")
+        cmd = [
+            sys.executable, str(base_dir / "smoke_test.py"),
+            "--host", args.host,
+            "--port", str(args.port),
+            "--user", args.user,
+            "--password", args.password,
+            "--use-neo4j",
+        ]
+        result = subprocess.run(cmd, cwd=str(Path(__file__).parent.parent.parent))
+        results.append(("Full smoke test", result.returncode == 0))
+
+    if args.suite in ("multi-protocol", "both"):
+        print(f"\n{'='*60}")
+        print("  Running: Multi-Protocol Smoke Test")
+        print(f"{'='*60}\n")
+        cmd = [
+            sys.executable, str(base_dir / "multi_protocol_smoke_test.py"),
+            "--host", args.host,
+            "--bolt-port", str(args.port),
+            "--ws-port", str(args.ws_port),
+            "--xray-port", str(args.xray_port),
+            "--user", args.user,
+            "--password", args.password,
+        ]
+        result = subprocess.run(cmd, cwd=str(Path(__file__).parent.parent.parent))
+        results.append(("Multi-protocol smoke test", result.returncode == 0))
+
+    # Summary
+    print(f"\n{'='*60}")
+    print("  SMOKE TEST SUMMARY")
+    print(f"{'='*60}")
+    all_pass = True
+    for name, passed in results:
+        status = "PASS" if passed else "FAIL"
+        print(f"  {status}  {name}")
+        if not passed:
+            all_pass = False
+
+    return 0 if all_pass else 1
 
 
 if __name__ == "__main__":
