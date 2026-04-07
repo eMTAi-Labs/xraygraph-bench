@@ -1,0 +1,100 @@
+name: multihop-from-vector-seeds
+family: hybrid-vector
+version: "1.0.0"
+tier: B
+status: draft
+query_language: cypher
+description: >
+  The full hybrid pipeline: vector similarity selects seed nodes, then deep
+  graph traversal expands from those seeds. This is the "production query"
+  pattern for RAG, recommendation engines, and knowledge graph exploration.
+  The benchmark scales both dimensions independently: vector top-K (how many
+  seeds) and hop depth (how far to traverse from each seed).
+
+  At high K × high hops, this is the combinatorial nightmare — each vector
+  seed produces a frontier that expands exponentially with hop depth. The
+  benchmark measures whether the engine can prune, stream, or batch across
+  multiple seed frontiers, or whether it treats each seed independently
+  (wasting work on overlapping neighborhoods).
+
+citation: >
+  RAG pipeline optimization from LangChain/LlamaIndex architecture.
+  Multi-seed BFS from parallel graph algorithms literature.
+  Vector-to-graph pipeline from knowledge graph completion benchmarks.
+
+dataset:
+  name: synthetic-vector-graph
+  type: synthetic
+  generator: power_law
+  generator_params:
+    node_count: 50000
+    m: 5
+    seed: 42
+
+query_template: >
+  CALL xray.vector_search('embedding_index', $query_vector, $seed_count)
+  YIELD node AS seed, score
+  WITH seed, score
+  MATCH path = (seed)-[*1..$hop_depth]->(target)
+  WITH seed, score, target, length(path) AS depth
+  RETURN seed, score, collect(DISTINCT target) AS targets, max(depth) AS max_depth
+  ORDER BY score DESC
+
+parameters:
+  seed_count:
+    type: integer
+    default: 5
+    min: 1
+    max: 100
+    description: >
+      Number of vector similarity seeds. Higher = more graph frontiers.
+  hop_depth:
+    type: integer
+    default: 3
+    min: 1
+    max: 10
+    description: >
+      Maximum traversal depth from each seed. The combinatorial explosion
+      parameter — this is where engines separate.
+  vector_dimensions:
+    type: integer
+    default: 128
+    min: 32
+    max: 1536
+    description: >
+      Embedding dimensionality.
+
+correctness_oracle:
+  type: invariant
+  description: >
+    Every returned target must be reachable from its seed within hop_depth.
+    Score must decrease monotonically for the seed ordering.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - compile_ms
+  - rows_out
+  - segments
+  - breakers
+
+tags:
+  - hybrid-vector
+  - tier-b
+  - rag-pipeline
+  - multi-seed-traversal
+  - combinatorial
+
+warm_runs: 10
+timeout_seconds: 600
+
+notes: >
+  Tier B benchmark. This is the hardest hybrid benchmark — it combines the
+  width of vector retrieval (K seeds) with the depth of graph traversal
+  (N hops). The key question: does the engine merge overlapping frontiers
+  from different seeds, or does it traverse independently from each seed?
+  Merged frontiers avoid redundant work but require more complex scheduling.
+
+  Scale test: run with (K=5, hops=3), (K=10, hops=3), (K=5, hops=5),
+  (K=10, hops=5). Plot the latency surface to see how costs scale with
+  each dimension.

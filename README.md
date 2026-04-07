@@ -27,19 +27,27 @@ xraygraph-bench is designed to make these differences visible and measurable.
 
 ## Benchmark families
 
-The suite organizes benchmarks into five families, each targeting a distinct
+The suite organizes benchmarks into eight families, each targeting a distinct
 aspect of engine behavior.
 
-| Family | Purpose |
-|--------|---------|
-| **core-executor** | Scan, filter, projection, aggregation, sort -- pure executor overhead |
-| **graph-breakers** | Expand, BFS, multi-hop traversal -- irregular graph work that breaks streaming |
-| **end-to-end** | Lineage, dependency analysis, impact analysis -- realistic graph workloads |
-| **public-compare** | Portable workloads suitable for fair cross-engine comparison |
-| **compile** | Cold vs warm, cache reuse, deopt/fallback -- compilation-aware measurement |
+| Family | Purpose | Tier |
+|--------|---------|------|
+| **core-executor** | Scan, filter, projection, aggregation, sort -- pure executor overhead | A |
+| **graph-breakers** | Expand, BFS, multi-hop traversal -- irregular graph work that breaks streaming | A |
+| **end-to-end** | Lineage, dependency analysis, impact analysis -- realistic graph workloads | A |
+| **public-compare** | Portable workloads suitable for fair cross-engine comparison | A |
+| **compile** | Cold vs warm, cache reuse, deopt/fallback -- compilation-aware measurement | A/B |
+| **gfql** | GFQL dataframe-style queries -- transpilation overhead, native query language | B |
+| **emergent-edge** | Workload-learned optimization -- learning curves, invalidation, cache tiers | B |
+| **hybrid-vector** | Vector similarity + graph traversal pipelines -- handoff cost, constrained ANN | B |
+
+**Tier A** = portable cross-engine comparison (same protocol, same query).
+**Tier B** = engine-native advantage (native protocol, engine-specific features).
+Tier A and Tier B results are never mixed in the same comparison.
 
 See [docs/benchmark-categories.md](docs/benchmark-categories.md) for detailed
-descriptions.
+descriptions. See [METHODOLOGY.md](METHODOLOGY.md) for the fairness contract,
+benchmark classes, engine mode declarations, and reproducibility requirements.
 
 ## Design principles
 

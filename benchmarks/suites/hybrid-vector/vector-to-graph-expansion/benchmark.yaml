@@ -1,0 +1,96 @@
+name: vector-to-graph-expansion
+family: hybrid-vector
+version: "1.0.0"
+tier: B
+status: draft
+query_language: cypher
+description: >
+  Measures the pipeline cost of vector similarity search followed by graph
+  neighborhood expansion. The query finds the top-K nearest vectors, then
+  expands N hops from each result through graph relationships. This isolates
+  the execution break between the vector stage (ANN index lookup) and the
+  graph stage (relationship traversal). The benchmark captures: (1) vector
+  search latency alone, (2) graph expansion latency alone, (3) combined
+  pipeline latency, and (4) the handoff overhead — the cost of transitioning
+  from vector results to graph traversal that neither stage incurs alone.
+
+  Most graph+vector systems claim seamless integration. This benchmark makes
+  the seam visible and measurable.
+
+citation: >
+  Hybrid vector-graph query processing. ANN benchmark methodology from
+  ann-benchmarks (Aumüller et al.). Graph expansion from LDBC SNB.
+  Pipeline cost model from vectorized query engine literature.
+
+dataset:
+  name: synthetic-vector-graph
+  type: synthetic
+  generator: power_law
+  generator_params:
+    node_count: 50000
+    m: 5
+    seed: 42
+
+query_template: >
+  CALL xray.vector_search('embedding_index', $query_vector, $top_k)
+  YIELD node, score
+  WITH node, score
+  MATCH (node)-[*1..$expansion_hops]->(neighbor)
+  RETURN node, score, collect(DISTINCT neighbor) AS neighborhood
+  ORDER BY score DESC
+  LIMIT $top_k
+
+parameters:
+  top_k:
+    type: integer
+    default: 10
+    min: 1
+    max: 1000
+    description: >
+      Number of nearest vector results to seed graph expansion from.
+  expansion_hops:
+    type: integer
+    default: 2
+    min: 1
+    max: 5
+    description: >
+      Number of hops to expand from each vector result.
+  vector_dimensions:
+    type: integer
+    default: 128
+    min: 32
+    max: 1536
+    description: >
+      Dimensionality of the embedding vectors.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 1
+  expected_row_count_max: 1000
+  description: >
+    Must return at least 1 result. Exact count depends on graph connectivity
+    around the vector search results.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - compile_ms
+  - rows_out
+
+tags:
+  - hybrid-vector
+  - tier-b
+  - vector-search
+  - graph-expansion
+  - pipeline-cost
+
+warm_runs: 20
+timeout_seconds: 300
+
+notes: >
+  Tier B benchmark — requires engine with both vector index and graph traversal
+  support. The query_template assumes xray.vector_search() procedure exists.
+  Engines without vector search should skip this benchmark (outcome: UNSUPPORTED).
+  To isolate pipeline cost, also run the vector search alone and graph expansion
+  alone as separate measurements, then compute handoff_overhead = pipeline -
+  (vector_alone + graph_alone).
