@@ -1,0 +1,97 @@
+name: property-width-scaling
+family: ingestion
+version: "1.0.0"
+tier: A
+status: published
+query_language: cypher
+description: >
+  Measures how ingestion throughput degrades as nodes get wider — carrying more
+  properties per node. The benchmark sweeps property_count across 1, 5, 10, 25,
+  and 50 properties while holding node_count constant at 50,000. Wide nodes
+  stress fundamentally different subsystems than narrow nodes: serialisation
+  overhead increases per row, storage allocation must handle variable-width
+  records, and any maintained property indexes must process more key-value pairs
+  per CREATE. Engines that store properties in a fixed-size record block will
+  degrade sharply beyond their record width limit. Engines with dynamic property
+  storage will show more linear degradation. A node with 50 properties is a
+  qualitatively different workload from a node with 1 property, and this
+  difference is not captured by any throughput benchmark that fixes property width.
+
+citation: >
+  Property-width sensitivity analysis is inspired by the column-width scaling
+  experiments in MonetDB and DuckDB OLAP benchmarks (Boncz et al., 2005;
+  Raasveldt & Muehleisen, 2019) adapted to graph node ingestion. The 1-to-50
+  property sweep range is chosen to bracket realistic production schemas: simple
+  entity graphs (~5 properties) through wide feature vectors (~50 properties).
+
+dataset:
+  name: synthetic-wide-nodes
+  type: synthetic
+  generator: wide_nodes
+  generator_params:
+    node_count: 50000
+    label: WideNode
+    max_property_count: 50
+    property_type: mixed
+    seed: 42
+
+query_template: >
+  UNWIND $batch AS row
+  CREATE (n:WideNode)
+  SET n = row.properties
+
+parameters:
+  node_count:
+    type: integer
+    default: 50000
+    min: 5000
+    max: 500000
+    description: >
+      Total nodes to create in each run. Held constant across all property_count
+      values so throughput differences isolate per-property serialisation cost
+      rather than data volume effects.
+  property_count:
+    type: integer
+    default: 10
+    min: 1
+    max: 50
+    description: >
+      Number of properties to set on each node. Sweep across [1, 5, 10, 25, 50]
+      to construct the throughput-vs-width curve. Each property is a mixed-type
+      value (alternating integer, float, and string) to stress type dispatch in
+      the serialisation layer. Default of 10 represents a typical production entity.
+
+correctness_oracle:
+  type: row_count
+  expected_row_count: 50000
+  description: >
+    After each run, MATCH (n:WideNode) RETURN count(n) must equal node_count.
+    Additionally, sample 10 random nodes and verify each has exactly property_count
+    keys in its property map to confirm no silent property truncation occurred
+    on wide nodes exceeding engine-internal record width limits.
+
+metrics:
+  - ingest_nodes_per_sec
+  - ingest_total_ms
+  - property_count
+  - ingest_batch_size
+  - cold_ms
+
+tags:
+  - ingestion
+  - property-width
+  - serialisation
+  - storage
+  - throughput
+  - node-width
+
+warm_runs: 3
+timeout_seconds: 600
+notes: >
+  Run as a parameter sweep: execute once per property_count in [1, 5, 10, 25, 50].
+  Clear all WideNode nodes between each run. The generator produces property keys
+  named prop_1 through prop_N with alternating types (integer for odd indices,
+  float for indices divisible by 3, string for the rest). Plot ingest_nodes_per_sec
+  vs property_count to quantify per-property serialisation cost. Engines that show
+  a non-linear (superlinear) degradation curve beyond a specific property count
+  threshold likely have a fixed-width internal record format with an overflow path.

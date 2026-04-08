@@ -23,7 +23,7 @@
     },
     "family": {
       "type": "string",
-      "enum": ["core-executor", "graph-breakers", "end-to-end", "public-compare", "compile", "gfql", "emergent-edge", "hybrid-vector"],
+      "enum": ["core-executor", "graph-breakers", "end-to-end", "public-compare", "compile", "gfql", "emergent-edge", "hybrid-vector", "ingestion"],
       "description": "Benchmark family this spec belongs to."
     },
     "version": {
@@ -182,7 +182,10 @@
           "segments", "breakers",
           "cache_hit", "fallback", "deopt",
           "qps", "latency_p50", "latency_p95", "latency_p99",
-          "error_rate", "concurrency"
+          "error_rate", "concurrency",
+          "ingest_nodes_per_sec", "ingest_edges_per_sec",
+          "ingest_total_ms", "index_build_ms",
+          "ingest_batch_size", "property_count"
         ]
       },
       "minItems": 1,

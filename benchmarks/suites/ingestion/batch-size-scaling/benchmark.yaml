@@ -1,0 +1,102 @@
+name: batch-size-scaling
+family: ingestion
+version: "1.0.0"
+tier: A
+status: published
+query_language: cypher
+description: >
+  Measures how ingestion throughput varies with transaction batch size while
+  holding total data volume constant. The same 50,000 nodes are loaded across
+  seven batch-size tiers: 1, 10, 100, 500, 1000, 2500, and 5000 nodes per
+  transaction. Tiny batches (1) maximise transaction overhead and expose the
+  per-commit fixed cost of each engine. Large batches (5000) maximise memory
+  pressure and expose write-buffer limits. The resulting throughput curve reveals
+  each engine's optimal batch size — a critical operational tuning parameter for
+  production data pipelines. Engines with high per-transaction overhead will show
+  steep dropoff at small batch sizes; engines with limited write buffers will
+  plateau or degrade at large batch sizes.
+
+citation: >
+  Batch-size sensitivity analysis methodology adapted from YCSB (Yahoo Cloud
+  Serving Benchmark, Cooper et al., 2010) extended to graph write workloads.
+  Seven-tier sweep follows the approach used in the InfluxDB and TimescaleDB
+  write-throughput benchmarks for identifying the throughput-vs-overhead trade-off
+  curve.
+
+dataset:
+  name: synthetic-nodes-50k
+  type: synthetic
+  generator: flat_nodes
+  generator_params:
+    node_count: 50000
+    label: BatchNode
+    properties:
+      id: integer
+      name: string
+      value: float
+      category: string
+      created_at: integer
+    seed: 42
+
+query_template: >
+  UNWIND $batch AS row
+  CREATE (n:BatchNode {
+    id: row.id,
+    name: row.name,
+    value: row.value,
+    category: row.category,
+    created_at: row.created_at
+  })
+
+parameters:
+  node_count:
+    type: integer
+    default: 50000
+    min: 10000
+    max: 500000
+    description: >
+      Total nodes to ingest. Held constant across all batch_size values so
+      that throughput differences reflect batch overhead, not data volume.
+      Must be divisible by the largest batch_size tested to avoid partial
+      final batches skewing results.
+  batch_size:
+    type: integer
+    default: 100
+    min: 1
+    max: 5000
+    description: >
+      Nodes per UNWIND transaction. Sweep this parameter across
+      [1, 10, 100, 500, 1000, 2500, 5000] to construct the throughput curve.
+      The default (100) is the midpoint of the sweep range and suitable for
+      a single-point baseline run.
+
+correctness_oracle:
+  type: row_count
+  expected_row_count: 50000
+  description: >
+    After each batch-size run, MATCH (n:BatchNode) RETURN count(n) must equal
+    node_count. Verify that total committed nodes match regardless of batch
+    granularity — partial-batch failures at the end of a run would indicate
+    off-by-one errors in the batch slicing logic.
+
+metrics:
+  - ingest_nodes_per_sec
+  - ingest_total_ms
+  - ingest_batch_size
+  - cold_ms
+
+tags:
+  - ingestion
+  - batch-size
+  - throughput
+  - tuning
+  - transaction-overhead
+
+warm_runs: 3
+timeout_seconds: 600
+notes: >
+  Run as a parameter sweep: execute this benchmark once per batch_size value
+  in [1, 10, 100, 500, 1000, 2500, 5000]. Clear all BatchNode nodes between
+  each run. Plot ingest_nodes_per_sec vs batch_size to identify the engine's
+  optimal operating point. The throughput curve shape (concave, linear, or
+  asymptoting) is itself a meaningful engine characteristic.

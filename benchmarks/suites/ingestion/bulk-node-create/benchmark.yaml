@@ -1,0 +1,102 @@
+name: bulk-node-create
+family: ingestion
+version: "1.0.0"
+tier: A
+status: published
+query_language: cypher
+description: >
+  Measures node creation rate at scale using batched Cypher CREATE statements.
+  Each node carries 5 properties (id, name, value, category, timestamp) to
+  simulate a realistic write workload rather than trivial empty-node creation.
+  Tests are run at 10K, 100K, and 1M nodes to expose how ingestion throughput
+  degrades (or holds) as the dataset grows. The key metric is ingest_nodes_per_sec,
+  which allows direct comparison of write-path efficiency across engines. Engines
+  with native batch CREATE optimizations, write-ahead log buffering, or MVCC-free
+  storage should separate from slower engines here.
+
+citation: >
+  Benchmark design follows the "TPC-like bulk load" pattern established in
+  LDBC SNB (Graphalytics Benchmark, 2021) extended for property-graph write
+  workloads. Batch-size selection (1000) follows Neo4j bulk-import best practices
+  documented in Neo4j Performance Tuning Guide (2023).
+
+dataset:
+  name: synthetic-nodes-100k
+  type: synthetic
+  generator: flat_nodes
+  generator_params:
+    node_count: 100000
+    label: BulkNode
+    properties:
+      id: integer
+      name: string
+      value: float
+      category: string
+      created_at: integer
+    seed: 42
+
+query_template: >
+  UNWIND $batch AS row
+  CREATE (n:BulkNode {
+    id: row.id,
+    name: row.name,
+    value: row.value,
+    category: row.category,
+    created_at: row.created_at
+  })
+
+parameters:
+  node_count:
+    type: integer
+    default: 100000
+    min: 10000
+    max: 1000000
+    description: >
+      Total number of nodes to create. Sweep across 10000, 100000, and 1000000
+      to characterise throughput at small, medium, and large scale. Each node
+      carries 5 properties.
+  batch_size:
+    type: integer
+    default: 1000
+    min: 1
+    max: 10000
+    description: >
+      Number of nodes passed to each UNWIND batch. The driver splits the full
+      node_count into ceil(node_count / batch_size) transactions. Controls
+      transaction overhead vs memory pressure trade-off.
+  seed:
+    type: integer
+    default: 42
+    description: >
+      RNG seed for synthetic property value generation. Fix across engines to
+      ensure identical data volumes and property distributions.
+
+correctness_oracle:
+  type: row_count
+  expected_row_count: 100000
+  description: >
+    After all batches complete, MATCH (n:BulkNode) RETURN count(n) must equal
+    node_count. A mismatch indicates dropped transactions, commit failures, or
+    silent constraint violations.
+
+metrics:
+  - ingest_nodes_per_sec
+  - ingest_total_ms
+  - ingest_batch_size
+  - cold_ms
+  - warm_ms
+
+tags:
+  - ingestion
+  - bulk-write
+  - node-create
+  - throughput
+  - batching
+
+warm_runs: 3
+timeout_seconds: 900
+notes: >
+  Re-run with node_count=10000 and node_count=1000000 to build the throughput
+  curve. Drop all BulkNode nodes between runs to avoid constraint collisions.
+  Index on BulkNode.id should NOT be pre-created — this benchmark measures raw
+  write throughput, not indexed insert cost (see index-build-time for that).
