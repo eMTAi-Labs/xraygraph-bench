@@ -32,15 +32,16 @@ mod platform {
 #[cfg(target_os = "linux")]
 mod platform {
     use libc::{clock_gettime, timespec, CLOCK_MONOTONIC_RAW};
+    use xraybench_types::{BenchError, Result};
 
-    pub fn now_ns() -> super::Result<u64> {
+    pub fn now_ns() -> Result<u64> {
         let mut ts = timespec {
             tv_sec: 0,
             tv_nsec: 0,
         };
         let ret = unsafe { clock_gettime(CLOCK_MONOTONIC_RAW, &mut ts) };
         if ret != 0 {
-            return Err(super::BenchError::ClockUnavailable(
+            return Err(BenchError::ClockUnavailable(
                 "clock_gettime(CLOCK_MONOTONIC_RAW) failed".to_string(),
             ));
         }
