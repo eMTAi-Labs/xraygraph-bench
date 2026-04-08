@@ -275,3 +275,92 @@ class TestRunnerValidatesCorrectness:
         assert result.outcome == "correctness_mismatch"
         assert result.outcome_detail is not None
         assert "mismatch" in result.outcome_detail
+
+
+class TestRunnerIncludesRawTimingsAndSpecHash:
+    """Verify the runner includes raw_timings_ms and spec_hash in output."""
+
+    def test_raw_timings_ms_populated(self, tmp_path: Any):
+        """raw_timings_ms should contain one float per warm run."""
+        adapter = _make_mock_adapter()
+        runner = BenchmarkRunner(adapter, config={"engine": "mock-engine"})
+        spec = _make_mock_spec()
+
+        with patch(
+            "tools.xraybench.runner.load_benchmark_spec", return_value=spec
+        ), patch("tools.xraybench.runner.validate", return_value=[]):
+            result = runner.run(str(tmp_path / "fake.yaml"))
+
+        assert result.raw_timings_ms is not None
+        assert isinstance(result.raw_timings_ms, list)
+        # warm_runs = 5, so we expect 5 timings
+        assert len(result.raw_timings_ms) == 5
+        for t in result.raw_timings_ms:
+            assert isinstance(t, float)
+            assert t >= 0
+
+        # Also verify it appears in to_dict()
+        d = result.to_dict()
+        assert "raw_timings_ms" in d
+        assert len(d["raw_timings_ms"]) == 5
+
+    def test_spec_hash_from_existing_file(self, tmp_path: Any):
+        """spec_hash should be a SHA-256 hex digest when spec file exists."""
+        adapter = _make_mock_adapter()
+        runner = BenchmarkRunner(adapter, config={"engine": "mock-engine"})
+        spec = _make_mock_spec()
+
+        # Write a real spec file so the runner can hash it
+        spec_file = tmp_path / "real-spec.yaml"
+        spec_file.write_text("name: test-benchmark\n")
+
+        with patch(
+            "tools.xraybench.runner.load_benchmark_spec", return_value=spec
+        ), patch("tools.xraybench.runner.validate", return_value=[]):
+            result = runner.run(str(spec_file))
+
+        assert result.spec_hash is not None
+        assert len(result.spec_hash) == 64  # SHA-256 hex digest is 64 chars
+        assert all(c in "0123456789abcdef" for c in result.spec_hash)
+
+        # Verify it appears in to_dict()
+        d = result.to_dict()
+        assert "spec_hash" in d
+        assert d["spec_hash"] == result.spec_hash
+
+    def test_spec_hash_none_for_missing_file(self, tmp_path: Any):
+        """spec_hash should be None when the spec file does not exist."""
+        adapter = _make_mock_adapter()
+        runner = BenchmarkRunner(adapter, config={"engine": "mock-engine"})
+        spec = _make_mock_spec()
+
+        with patch(
+            "tools.xraybench.runner.load_benchmark_spec", return_value=spec
+        ), patch("tools.xraybench.runner.validate", return_value=[]):
+            result = runner.run(str(tmp_path / "nonexistent.yaml"))
+
+        assert result.spec_hash is None
+
+    def test_engine_mode_populated(self, tmp_path: Any):
+        """engine_mode should be built from config defaults."""
+        adapter = _make_mock_adapter()
+        runner = BenchmarkRunner(adapter, config={"engine": "mock-engine"})
+        spec = _make_mock_spec()
+
+        with patch(
+            "tools.xraybench.runner.load_benchmark_spec", return_value=spec
+        ), patch("tools.xraybench.runner.validate", return_value=[]):
+            result = runner.run(str(tmp_path / "fake.yaml"))
+
+        assert result.engine_mode is not None
+        assert isinstance(result.engine_mode, dict)
+        assert "storage" in result.engine_mode
+        assert "durability" in result.engine_mode
+        assert "execution_model" in result.engine_mode
+        assert "concurrency_model" in result.engine_mode
+        assert "isolation" in result.engine_mode
+        assert "replication" in result.engine_mode
+
+        # Verify it appears in to_dict()
+        d = result.to_dict()
+        assert "engine_mode" in d

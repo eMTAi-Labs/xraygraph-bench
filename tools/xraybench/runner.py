@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from pathlib import Path
@@ -76,6 +77,41 @@ class BenchmarkRunner:
         """
         spec = load_benchmark_spec(spec_path)
         params = self._resolve_parameters(spec, parameter_overrides)
+
+        # Compute spec hash (SHA-256 of the spec file contents)
+        spec_path_obj = Path(spec_path)
+        spec_hash: str | None = None
+        if spec_path_obj.exists():
+            spec_hash = hashlib.sha256(spec_path_obj.read_bytes()).hexdigest()
+
+        # Compute dataset manifest hash if a manifest exists on disk
+        dataset_manifest_hash: str | None = None
+        if spec.dataset.name:
+            # Check common manifest locations
+            for candidate_dir in [
+                Path(self.config.get("data_dir", "/data/xraybench"))
+                / "synthetic"
+                / spec.dataset.name,
+                Path(self.config.get("data_dir", "/data/xraybench"))
+                / spec.dataset.type
+                / spec.dataset.name,
+            ]:
+                manifest_path = candidate_dir / "manifest.yaml"
+                if manifest_path.exists():
+                    dataset_manifest_hash = hashlib.sha256(
+                        manifest_path.read_bytes()
+                    ).hexdigest()
+                    break
+
+        # Build engine_mode from config
+        engine_mode = {
+            "storage": self.config.get("storage_mode", "in-memory"),
+            "durability": self.config.get("durability", "relaxed"),
+            "execution_model": self.config.get("execution_model", "unknown"),
+            "concurrency_model": self.config.get("concurrency_model", "unknown"),
+            "isolation": self.config.get("isolation", "snapshot"),
+            "replication": self.config.get("replication", "none"),
+        }
 
         logger.info("Running benchmark: %s (family: %s)", spec.name, spec.family)
         logger.info("Engine: %s", self.adapter.engine_version())
@@ -235,6 +271,11 @@ class BenchmarkRunner:
                 steady_state_samples=steady_state_samples,
                 ci_lower_ms=ci_lower_ms,
                 ci_upper_ms=ci_upper_ms,
+                # Methodology gap closures
+                engine_mode=engine_mode,
+                raw_timings_ms=warm_times,
+                spec_hash=spec_hash,
+                dataset_manifest_hash=dataset_manifest_hash,
             )
 
             # 10. Validate against schema

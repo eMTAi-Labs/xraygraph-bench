@@ -34,5 +34,19 @@
     "cores": 64,
     "memory_gb": 256.0
   },
-  "notes": "Default engine configuration, no tuning applied."
+  "notes": "Default engine configuration, no tuning applied.",
+  "engine_mode": {
+    "storage": "in-memory",
+    "durability": "relaxed",
+    "execution_model": "vectorized",
+    "concurrency_model": "multi-threaded",
+    "isolation": "snapshot",
+    "replication": "none"
+  },
+  "tier": "A",
+  "outcome": "success",
+  "outcome_detail": "All correctness checks passed.",
+  "raw_timings_ms": [18.1, 18.5, 17.9, 18.4, 18.2, 18.6, 18.0, 18.3, 18.7, 18.1],
+  "spec_hash": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+  "dataset_manifest_hash": "f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5"
 }

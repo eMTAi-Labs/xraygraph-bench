@@ -179,6 +179,46 @@
     "notes": {
       "type": "string",
       "description": "Free-form notes about the run."
+    },
+    "engine_mode": {
+      "type": "object",
+      "properties": {
+        "storage": {"type": "string", "enum": ["in-memory", "disk-backed", "hybrid"]},
+        "durability": {"type": "string", "enum": ["full-acid", "relaxed", "benchmark-mode"]},
+        "execution_model": {"type": "string", "enum": ["interpreted", "vectorized", "compiled", "jit"]},
+        "concurrency_model": {"type": "string", "enum": ["single-threaded", "multi-threaded", "morsel-parallel"]},
+        "isolation": {"type": "string", "enum": ["serializable", "snapshot", "read-committed"]},
+        "replication": {"type": "string", "enum": ["none", "sync", "async"]}
+      },
+      "additionalProperties": false,
+      "description": "Engine operating mode declarations. Required for fair comparison."
+    },
+    "tier": {
+      "type": "string",
+      "enum": ["A", "B"],
+      "description": "Benchmark tier. A = portable cross-engine, B = engine-native advantage."
+    },
+    "outcome": {
+      "type": "string",
+      "enum": ["success", "correctness_mismatch", "engine_error", "timeout", "unsupported", "dataset_verification_failed", "harness_failure", "connection_failure", "out_of_memory"],
+      "description": "Machine-readable execution outcome."
+    },
+    "outcome_detail": {
+      "type": "string",
+      "description": "Human-readable detail about the outcome."
+    },
+    "raw_timings_ms": {
+      "type": "array",
+      "items": {"type": ["number", "null"]},
+      "description": "Per-iteration warm-run timings in milliseconds. Null = timeout."
+    },
+    "spec_hash": {
+      "type": "string",
+      "description": "SHA-256 hex digest of the benchmark spec YAML file."
+    },
+    "dataset_manifest_hash": {
+      "type": "string",
+      "description": "SHA-256 hex digest of the dataset manifest YAML file."
     }
   },
   "additionalProperties": true

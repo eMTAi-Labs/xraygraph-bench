@@ -208,3 +208,29 @@ class TestListing:
         assert "alpha" in names
         assert "beta" in names
         assert len(datasets) >= 2
+
+
+# ---------------------------------------------------------------------------
+# TestTierPresets (3 tests)
+# ---------------------------------------------------------------------------
+
+class TestTierPresets:
+
+    def setup_method(self) -> None:
+        self.manager, self.data_dir = _make_manager()
+
+    def teardown_method(self) -> None:
+        shutil.rmtree(self.data_dir, ignore_errors=True)
+
+    def test_generate_tier_small(self) -> None:
+        manifest = self.manager.generate_tier("small")
+        assert manifest["node_count"] == 10000
+
+    def test_generate_tier_deep(self) -> None:
+        manifest = self.manager.generate_tier("deep")
+        assert manifest["node_count"] > 50000
+
+    def test_generate_tier_invalid(self) -> None:
+        import pytest
+        with pytest.raises(ValueError):
+            self.manager.generate_tier("nonexistent")

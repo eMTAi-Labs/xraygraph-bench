@@ -301,6 +301,11 @@ class BenchmarkResult:
     steady_state_samples: int | None = None
     ci_lower_ms: float | None = None
     ci_upper_ms: float | None = None
+    # --- Methodology gap closures ---
+    engine_mode: dict[str, str] | None = None
+    raw_timings_ms: list[float] | None = None
+    spec_hash: str | None = None
+    dataset_manifest_hash: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to a dictionary matching the result schema."""
@@ -375,6 +380,16 @@ class BenchmarkResult:
             result["ci_lower_ms"] = self.ci_lower_ms
         if self.ci_upper_ms is not None:
             result["ci_upper_ms"] = self.ci_upper_ms
+
+        # Methodology gap closures
+        if self.engine_mode is not None:
+            result["engine_mode"] = self.engine_mode
+        if self.raw_timings_ms is not None:
+            result["raw_timings_ms"] = self.raw_timings_ms
+        if self.spec_hash is not None:
+            result["spec_hash"] = self.spec_hash
+        if self.dataset_manifest_hash is not None:
+            result["dataset_manifest_hash"] = self.dataset_manifest_hash
 
         return result
 

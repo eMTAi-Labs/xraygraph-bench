@@ -85,12 +85,17 @@ def main(argv: list[str] | None = None) -> int:
     )
     gen_parser.add_argument(
         "--generator",
-        required=True,
+        required=False,
         choices=["chain", "hub", "power_law", "deep_traversal"],
         help="Generator function to use",
     )
     gen_parser.add_argument(
-        "--name", required=True, help="Dataset name (used as directory name)"
+        "--tier",
+        choices=["small", "medium", "large", "skewed", "deep"],
+        help="Use a predefined scaling tier instead of manual --generator/--param",
+    )
+    gen_parser.add_argument(
+        "--name", required=False, help="Dataset name (used as directory name)"
     )
     gen_parser.add_argument(
         "--param",
@@ -523,6 +528,33 @@ def _cmd_generate(args: argparse.Namespace) -> int:
     """Generate a synthetic benchmark dataset."""
     from tools.xraybench.dataset_manager import DatasetManager
 
+    manager = DatasetManager(data_dir=args.data_dir)
+
+    # --tier shortcut takes precedence over --generator/--param
+    if args.tier:
+        try:
+            manifest = manager.generate_tier(args.tier)
+        except Exception as e:
+            logging.getLogger(__name__).error("Generation failed: %s", e)
+            return 1
+
+        dataset_dir = manager.data_dir / "synthetic" / f"tier-{args.tier}"
+        print(f"Generated dataset: tier-{args.tier}")
+        print(f"  Tier      : {args.tier}")
+        print(f"  Nodes     : {manifest['node_count']}")
+        print(f"  Edges     : {manifest['edge_count']}")
+        print(f"  Path      : {dataset_dir}")
+        return 0
+
+    # Manual --generator/--param path
+    if not args.generator:
+        print("Error: either --tier or --generator is required.")
+        return 1
+
+    if not args.name:
+        print("Error: --name is required when using --generator.")
+        return 1
+
     # Parse --param key=value pairs
     params: dict[str, "int | float | list[int] | str"] = {}
     for item in args.param:
@@ -532,7 +564,6 @@ def _cmd_generate(args: argparse.Namespace) -> int:
         key, raw_value = item.split("=", 1)
         params[key.strip()] = _parse_param_value(raw_value)
 
-    manager = DatasetManager(data_dir=args.data_dir)
     try:
         manifest = manager.generate_synthetic(
             name=args.name,

@@ -32,6 +32,39 @@ def _file_sha256(path: str | Path) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Tier presets — predefined scaling tiers for benchmarking
+# ---------------------------------------------------------------------------
+
+TIER_PRESETS: dict[str, dict[str, Any]] = {
+    "small": {
+        "generator": "power_law",
+        "params": {"node_count": 10000, "m": 5, "seed": 42},
+        "description": "10K nodes, power-law — baseline overhead measurement",
+    },
+    "medium": {
+        "generator": "power_law",
+        "params": {"node_count": 100000, "m": 5, "seed": 42},
+        "description": "100K nodes, power-law — typical application scale",
+    },
+    "large": {
+        "generator": "power_law",
+        "params": {"node_count": 1000000, "m": 5, "seed": 42},
+        "description": "1M nodes, power-law — production-adjacent scale",
+    },
+    "skewed": {
+        "generator": "hub",
+        "params": {"hub_count": 100, "spokes_per_hub": 100000, "seed": 42},
+        "description": "100 hubs x 100K spokes — irregular fan-out stress test",
+    },
+    "deep": {
+        "generator": "deep_traversal",
+        "params": {"num_roots": 3, "fanout_per_level": [4, 4, 3, 3, 2, 2, 2, 2, 2, 2], "seed": 42},
+        "description": "55K nodes, 10-level tree — hop-depth stress test",
+    },
+}
+
+
+# ---------------------------------------------------------------------------
 # DatasetManager
 # ---------------------------------------------------------------------------
 
@@ -107,6 +140,29 @@ class DatasetManager:
             yaml.dump(manifest, f, default_flow_style=False, sort_keys=False)
 
         return manifest
+
+    def generate_tier(self, tier: str) -> dict[str, Any]:
+        """Generate a dataset from a predefined scaling tier.
+
+        Args:
+            tier: One of 'small', 'medium', 'large', 'skewed', 'deep'.
+
+        Returns:
+            The manifest dict that was written to manifest.yaml.
+
+        Raises:
+            ValueError: If the tier name is not recognised.
+        """
+        if tier not in TIER_PRESETS:
+            raise ValueError(
+                f"Unknown tier: {tier}. Available: {', '.join(TIER_PRESETS)}"
+            )
+        preset = TIER_PRESETS[tier]
+        return self.generate_synthetic(
+            name=f"tier-{tier}",
+            generator=preset["generator"],
+            params=preset["params"],
+        )
 
     def ingest_edge_list(
         self,
