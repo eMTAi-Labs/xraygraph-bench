@@ -1,0 +1,87 @@
+name: great-circle-range
+family: geometric
+version: "1.0.0"
+tier: A
+status: published
+query_language: cypher
+description: >
+  Range query on the sphere — find all nodes within R kilometers of a query
+  point. Unlike nearest-neighbor (which returns exactly K results), this
+  returns all nodes within a distance threshold. The result count depends on
+  the data distribution and radius. At small radius (10km) over sparse data,
+  few results. At large radius (1000km) over dense data, potentially thousands.
+  This exposes whether the engine can prune early using spatial bounds or must
+  compute distance for every node.
+
+  Scaling test: run at radius 10km, 100km, 500km, 1000km, 5000km on the same
+  dataset. The result count curve reveals the data's spatial distribution and
+  the engine's scan behavior.
+
+citation: >
+  Spherical range query evaluation. GIS benchmark methodology from Open
+  Geospatial Consortium spatial query tests.
+
+dataset:
+  name: synthetic-geo-points
+  type: synthetic
+  generator: uniform_nodes
+  generator_params:
+    node_count: 100000
+    properties:
+      id: integer
+      lat: float
+      lon: float
+    seed: 42
+
+query_template: >
+  MATCH (n:GeoPoint)
+  WITH n, HAVERSINE_DISTANCE($query_lat, $query_lon, n.lat, n.lon) AS dist_m
+  WHERE dist_m <= $radius_m
+  RETURN n.id, n.lat, n.lon, dist_m
+  ORDER BY dist_m ASC
+
+parameters:
+  query_lat:
+    type: float
+    default: 40.7128
+    description: >
+      Query point latitude.
+  query_lon:
+    type: float
+    default: -74.0060
+    description: >
+      Query point longitude.
+  radius_m:
+    type: float
+    default: 500000.0
+    min: 1000.0
+    max: 20000000.0
+    description: >
+      Search radius in meters. 500000 = 500km. Scale from 10km to 5000km
+      to observe how result count and latency grow with radius.
+
+correctness_oracle:
+  type: invariant
+  description: >
+    All returned nodes must have dist_m <= radius_m. No node outside the
+    radius may be included. Distance values must be non-negative.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - rows_out
+
+tags:
+  - geometric
+  - tier-a
+  - range-query
+  - haversine
+  - spatial-filter
+
+warm_runs: 20
+timeout_seconds: 120
+
+notes: >
+  Tier A — portable across engines with haversine/distance support.
+  Key output: latency vs radius curve. At 500km, expect 1-5% of a uniformly
+  distributed global dataset. At 5000km, expect 20-30%.

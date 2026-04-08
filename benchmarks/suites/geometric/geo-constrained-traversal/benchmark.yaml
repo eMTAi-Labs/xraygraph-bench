@@ -1,0 +1,106 @@
+name: geo-constrained-traversal
+family: geometric
+version: "1.0.0"
+tier: A
+status: published
+query_language: cypher
+description: >
+  Graph traversal constrained by geographic distance — expand through
+  relationships, but only follow edges to nodes within a maximum geographic
+  distance from the starting point. This is the "how far can I reach within
+  500km by following connections?" query. It combines graph structure (which
+  nodes are connected) with geographic filtering (which connections are
+  within range).
+
+  This is fundamentally different from pure spatial range queries because
+  the result depends on graph connectivity, not just proximity. Two nodes
+  1km apart may be unreachable if there's no edge path between them. Two
+  nodes 400km apart may be reachable through a chain of short-distance edges.
+
+  Real-world applications: supply chain reach from a warehouse, flight
+  connections within range, infrastructure network coverage, disease spread
+  modeling within geographic bounds.
+
+citation: >
+  Spatial-aware graph traversal from transportation network analysis.
+  Constrained BFS from geographic information retrieval literature.
+
+dataset:
+  name: synthetic-geo-graph
+  type: synthetic
+  generator: power_law
+  generator_params:
+    node_count: 50000
+    m: 5
+    seed: 42
+
+query_template: >
+  MATCH (start:GeoPoint {id: $start_id})
+  MATCH path = (start)-[:CONNECTED*1..$max_hops]->(target)
+  WHERE ALL(n IN nodes(path) WHERE
+    HAVERSINE_DISTANCE(start.lat, start.lon, n.lat, n.lon) <= $radius_m)
+  RETURN DISTINCT target.id, target.lat, target.lon,
+    HAVERSINE_DISTANCE(start.lat, start.lon, target.lat, target.lon) AS dist_m,
+    length(path) AS hops
+  ORDER BY dist_m ASC
+  LIMIT $limit
+
+parameters:
+  start_id:
+    type: integer
+    default: 0
+    description: >
+      Starting node for geographic traversal.
+  max_hops:
+    type: integer
+    default: 5
+    min: 1
+    max: 10
+    description: >
+      Maximum graph hops from start.
+  radius_m:
+    type: float
+    default: 500000.0
+    min: 10000.0
+    max: 10000000.0
+    description: >
+      Geographic radius constraint in meters. Only nodes within this
+      distance of the start point are included in the traversal.
+  limit:
+    type: integer
+    default: 500
+    min: 10
+    max: 10000
+    description: >
+      Maximum result rows.
+
+correctness_oracle:
+  type: invariant
+  description: >
+    Every returned target must be (a) reachable from start within max_hops
+    graph edges, AND (b) within radius_m meters of the start point. Both
+    constraints must hold simultaneously.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - rows_out
+  - segments
+  - breakers
+
+tags:
+  - geometric
+  - tier-a
+  - constrained-traversal
+  - spatial-graph
+  - haversine
+
+warm_runs: 15
+timeout_seconds: 300
+
+notes: >
+  Tier A — uses standard Cypher with HAVERSINE_DISTANCE (or adapter
+  equivalent). This is the hardest geometric benchmark because the engine
+  must interleave graph expansion with distance filtering. Engines that
+  evaluate the WHERE clause lazily (per hop) avoid expanding dead-end
+  paths. Engines that expand fully then filter pay for the full frontier.
