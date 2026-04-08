@@ -1,0 +1,73 @@
+name: complexity-analysis
+family: code-intelligence
+version: "1.0.0"
+tier: B
+status: published
+query_language: cypher
+description: >
+  Measures the performance of xray.complexity() — a native code analysis
+  procedure that computes cyclomatic complexity scores across all functions
+  in the graph. Exercises full-graph scan with per-function control-flow
+  analysis. Sorting by score DESC surfaces the most complex functions first,
+  which is the primary use case for code quality dashboards.
+
+dataset:
+  name: synthetic-code-graph
+  type: code-graph
+  generator: code_graph
+  generator_params:
+    file_count: 5000
+    class_count: 15000
+    function_count: 100000
+    avg_calls_per_function: 4
+    avg_imports_per_file: 8
+    seed: 42
+
+query_template: >
+  CALL xray.complexity()
+  YIELD name, score, grade
+  RETURN name, score, grade
+  ORDER BY score DESC
+  LIMIT $limit
+
+parameters:
+  limit:
+    type: integer
+    default: 100
+    min: 1
+    max: 100000
+    description: >
+      Maximum number of functions to return, ordered by descending
+      complexity score.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 1
+  expected_row_count_max: 10000
+  expected_columns: [name, score, grade]
+  description: >
+    Returns up to $limit rows. Each row represents a function with its
+    cyclomatic complexity score and letter grade. The exact count depends
+    on the dataset size and the limit parameter.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - rows_out
+  - segments
+
+tags:
+  - code-intelligence
+  - complexity
+  - xray-procedure
+  - code-quality
+  - tier-b
+
+warm_runs: 10
+timeout_seconds: 300
+
+notes: >
+  Tier B — xrayGraphDB only. Other engines return UNSUPPORTED.
+  This benchmark exercises the xray.complexity() procedure, which performs
+  cyclomatic complexity analysis natively in the graph engine without
+  requiring external tooling.

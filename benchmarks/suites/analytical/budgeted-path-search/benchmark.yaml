@@ -1,0 +1,86 @@
+name: budgeted-path-search
+family: analytical
+version: "1.0.0"
+tier: B
+status: published
+query_language: cypher
+description: >
+  Measures the performance of xray.find_path_budgeted($start, $end,
+  $budget_ms) — a native procedure that finds a path between two nodes
+  within a wall-clock time budget. The engine explores paths using an
+  adaptive strategy and returns the best path found before the budget
+  expires. This is unique to xrayGraphDB — no other graph engine has
+  cost-aware query execution that gracefully degrades under time pressure
+  rather than timing out with an error.
+
+dataset:
+  name: synthetic-power-law
+  type: synthetic
+  generator: power_law
+  generator_params:
+    node_count: 1000000
+    edge_count: 10000000
+    seed: 42
+
+query_template: >
+  CALL xray.find_path_budgeted($start_id, $end_id, $budget_ms)
+  YIELD path, cost_ms, hops
+  RETURN *
+
+parameters:
+  start_id:
+    type: integer
+    default: 0
+    min: 0
+    max: 999999
+    description: >
+      Starting node ID for the path search.
+  end_id:
+    type: integer
+    default: 1000
+    min: 0
+    max: 999999
+    description: >
+      Target node ID for the path search.
+  budget_ms:
+    type: integer
+    default: 100
+    min: 10
+    max: 10000
+    description: >
+      Maximum wall-clock milliseconds to spend searching. The engine
+      returns the best path found within this budget. Lower budgets
+      test graceful degradation; higher budgets test path quality.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 0
+  expected_row_count_max: 1
+  expected_columns: [path, cost_ms, hops]
+  description: >
+    Returns zero rows if no path is found within the budget, or one
+    row with the best path found. cost_ms should be less than or equal
+    to budget_ms. The hops field indicates path length.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - rows_out
+  - segments
+
+tags:
+  - analytical
+  - budgeted
+  - path-search
+  - cost-aware
+  - xray-procedure
+  - tier-b
+
+warm_runs: 20
+timeout_seconds: 300
+
+notes: >
+  Tier B — xrayGraphDB only. Other engines return UNSUPPORTED.
+  Budgeted path search is a unique capability: the engine adapts its
+  search strategy to the time budget rather than failing hard on
+  timeout. This enables responsive UIs that always return something.

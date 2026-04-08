@@ -1,0 +1,70 @@
+name: string-function-overhead
+family: function-eval
+version: "1.0.0"
+tier: B
+status: published
+query_language: cypher
+description: >
+  Measures the per-row overhead of string function evaluation. Tests a
+  pipeline of toLower() and replace() applied to every matched node's
+  name property. String functions are typically more expensive than math
+  functions due to memory allocation and UTF-8 handling. This benchmark
+  exposes the engine's string processing efficiency and whether it can
+  batch string operations.
+
+dataset:
+  name: synthetic-power-law
+  type: synthetic
+  generator: power_law
+  generator_params:
+    node_count: 1000000
+    properties:
+      name: string
+    seed: 42
+
+query_template: >
+  MATCH (n:N)
+  RETURN toLower(replace(n.name, '_', '-')) AS transformed
+  LIMIT $limit
+
+parameters:
+  limit:
+    type: integer
+    default: 10000
+    min: 100
+    max: 1000000
+    description: >
+      Number of rows to evaluate. Higher limits amortize per-query
+      overhead and isolate per-row string function cost.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 1
+  expected_row_count_max: 1000000
+  expected_columns: [transformed]
+  description: >
+    Returns up to $limit rows. Each row contains a lowercase string
+    with underscores replaced by hyphens. All results should be
+    non-null lowercase strings.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - compile_ms
+  - rows_in
+  - rows_out
+
+tags:
+  - function-eval
+  - string
+  - overhead
+  - tier-b
+
+warm_runs: 20
+timeout_seconds: 300
+
+notes: >
+  Tier B — xrayGraphDB only. Other engines return UNSUPPORTED.
+  String function overhead is typically 3-10x higher than math function
+  overhead due to memory allocation. This benchmark quantifies that
+  gap for the xrayGraphDB engine.
