@@ -329,7 +329,7 @@ def main():
     parser.add_argument("--ws-port", type=int, default=7688)
     parser.add_argument("--xray-port", type=int, default=7689)
     parser.add_argument("--user", default="admin")
-    parser.add_argument("--password", default="***REDACTED***")
+    parser.add_argument("--password", default="")
     parser.add_argument("--auth-token", default="", help="xrayProtocol auth token (default: user:password)")
     args = parser.parse_args()
 

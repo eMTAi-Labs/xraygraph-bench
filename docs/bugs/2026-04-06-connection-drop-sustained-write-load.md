@@ -130,7 +130,7 @@ To verify this is not a network or OS issue, Neo4j 5.26.24 was started on the sa
 ```
 docker run -d --name neo4j-bench \
   -p 17474:7474 -p 17687:7687 \
-  -e NEO4J_AUTH=neo4j/***REDACTED*** \
+  -e NEO4J_AUTH=neo4j/<NEO4J_PASSWORD> \
   -e NEO4J_server_memory_heap_initial__size=4g \
   -e NEO4J_server_memory_heap_max__size=4g \
   neo4j:5

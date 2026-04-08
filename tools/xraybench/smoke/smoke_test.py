@@ -456,7 +456,7 @@ def main():
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=7687)
     parser.add_argument("--user", default="admin")
-    parser.add_argument("--password", default="***REDACTED***")
+    parser.add_argument("--password", default="")
     parser.add_argument("--use-neo4j", action="store_true", help="Use neo4j driver instead of mgclient")
     args = parser.parse_args()
 
