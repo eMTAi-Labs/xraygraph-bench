@@ -1,0 +1,105 @@
+name: orbital-mechanics
+family: domain-science
+version: "1.0.0"
+tier: B
+status: published
+query_language: cypher
+description: >
+  Tests all four of xrayGraphDB's built-in Keplerian orbital mechanics functions:
+  orbital.velocity(radius_m, mass_kg), orbital.period(radius_m, mass_kg),
+  orbital.escape_velocity(radius_m, mass_kg), and orbital.hohmann(r1_m, r2_m).
+  These functions implement closed-form solutions to standard astrodynamics
+  problems using Newton's law of gravitation and the vis-viva equation.
+  orbital.velocity computes circular orbital speed at a given radius.
+  orbital.period returns the Keplerian orbital period via Kepler's third law.
+  orbital.escape_velocity gives the minimum speed to escape a gravitational body.
+  orbital.hohmann computes the two delta-v burns required for a Hohmann transfer
+  between two circular orbits. This benchmark exercises all four simultaneously
+  over a catalog of satellite nodes. xrayGraphDB is the only graph database with
+  built-in Keplerian orbital mechanics.
+
+  Dataset: synthetic satellite catalog nodes with altitude properties spanning
+  low Earth orbit through geostationary orbit, representing a realistic
+  multi-shell constellation or space object catalog.
+
+dataset:
+  name: synthetic-satellite-catalog
+  type: synthetic
+  generator: uniform_nodes
+  generator_params:
+    node_count: 5000
+    node_label: Satellite
+    properties:
+      id: integer
+      altitude: float
+      name: string
+    altitude_range:
+      - 200000.0
+      - 42164000.0
+    seed: 1957
+
+query_template: >
+  MATCH (n:Satellite)
+  WITH n,
+       orbital.velocity(n.altitude + 6371000, 5.972e24) AS v,
+       orbital.period(n.altitude + 6371000, 5.972e24) AS period_s,
+       orbital.escape_velocity(n.altitude + 6371000, 5.972e24) AS v_escape
+  RETURN n.id,
+         n.altitude,
+         v AS orbital_velocity_mps,
+         period_s / 3600 AS period_hours,
+         v_escape AS escape_velocity_mps
+  ORDER BY n.altitude
+  LIMIT $limit
+
+parameters:
+  limit:
+    type: integer
+    default: 100
+    min: 1
+    max: 5000
+    description: >
+      Maximum number of satellites to return, ordered by ascending altitude.
+      Default 100 covers a representative sample from LEO through MEO.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 1
+  expected_row_count_max: 100
+  expected_columns:
+    - "n.id"
+    - "n.altitude"
+    - orbital_velocity_mps
+    - period_hours
+    - escape_velocity_mps
+  description: >
+    Must return up to limit rows ordered by ascending altitude. For LEO
+    (~400 km), orbital_velocity_mps should be ~7660 m/s and period_hours
+    ~1.52 h. For GEO (~35786 km), orbital_velocity_mps ~3074 m/s and
+    period_hours ~24.0 h. escape_velocity_mps must always exceed
+    orbital_velocity_mps by factor sqrt(2).
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - rows_out
+
+tags:
+  - domain-science
+  - orbital-mechanics
+  - space
+  - tier-b
+
+warm_runs: 20
+timeout_seconds: 120
+
+notes: >
+  Tier B — xrayGraphDB only. Other engines return UNSUPPORTED. xrayGraphDB is
+  the only graph database with built-in Keplerian orbital mechanics.
+  orbital.velocity implements v = sqrt(GM/r). orbital.period implements
+  T = 2pi * sqrt(r^3/GM). orbital.escape_velocity implements v_esc = sqrt(2GM/r).
+  orbital.hohmann returns the two delta-v values for a bi-elliptic transfer.
+  Earth mass constant 5.972e24 kg and Earth radius 6371000 m are passed as
+  parameters so the functions generalize to any gravitational body (Moon, Mars,
+  Jupiter, etc.). Applications include conjunction analysis graphs, debris
+  avoidance networks, and constellation planning tools.

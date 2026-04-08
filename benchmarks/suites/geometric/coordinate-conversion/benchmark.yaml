@@ -1,0 +1,94 @@
+name: coordinate-conversion
+family: geometric
+version: "1.0.0"
+tier: B
+status: published
+query_language: cypher
+description: >
+  Tests xrayGraphDB's built-in military and engineering coordinate conversion
+  functions geo.to_mgrs(lat, lon) and geo.to_utm(lat, lon). MGRS (Military Grid
+  Reference System) is the NATO standard for ground force location reporting.
+  UTM (Universal Transverse Mercator) is the standard for engineering, surveying,
+  and topographic work. Both require non-trivial ellipsoidal math that no other
+  graph database exposes as native Cypher functions. This benchmark measures
+  bulk conversion throughput when transforming a large dataset of WGS-84
+  coordinates to MGRS strings and UTM zone/easting/northing tuples in one pass.
+
+  Dataset: synthetic geographic points with lat/lon properties covering all
+  UTM zones (lat -80 to 84, lon -180 to 180) to exercise zone boundary logic.
+
+dataset:
+  name: synthetic-geo-points-global
+  type: synthetic
+  generator: uniform_nodes
+  generator_params:
+    node_count: 50000
+    node_label: GeoPoint
+    properties:
+      id: integer
+      lat: float
+      lon: float
+    lat_range:
+      - -80.0
+      - 84.0
+    lon_range:
+      - -180.0
+      - 180.0
+    seed: 7
+
+query_template: >
+  MATCH (n:GeoPoint)
+  RETURN n.id,
+         n.lat,
+         n.lon,
+         geo.to_mgrs(n.lat, n.lon) AS mgrs,
+         geo.to_utm(n.lat, n.lon) AS utm
+  LIMIT $limit
+
+parameters:
+  limit:
+    type: integer
+    default: 5000
+    min: 1
+    max: 50000
+    description: >
+      Maximum number of nodes to convert and return. Default 5000 exercises
+      a broad cross-section of UTM zones.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 1
+  expected_row_count_max: 5000
+  expected_columns:
+    - "n.id"
+    - "n.lat"
+    - "n.lon"
+    - mgrs
+    - utm
+  description: >
+    Must return exactly limit rows. MGRS values must be non-empty strings in
+    standard NATO format (e.g., "18TWL8044512388"). UTM values must be a list
+    or map containing zone, easting, and northing. All rows must have non-null
+    coordinate conversion results.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - rows_out
+
+tags:
+  - geometric
+  - coordinate-conversion
+  - mgrs
+  - utm
+  - tier-b
+
+warm_runs: 20
+timeout_seconds: 120
+
+notes: >
+  Tier B — xrayGraphDB only. Other engines return UNSUPPORTED. geo.to_mgrs
+  converts WGS-84 decimal degrees to a NATO MGRS string. geo.to_utm returns
+  UTM zone, easting, and northing. Both functions handle polar regions and
+  zone exceptions (Svalbard, Norway). Essential for defense, surveying, and
+  emergency response applications.

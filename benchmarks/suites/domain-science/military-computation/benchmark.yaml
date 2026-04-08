@@ -1,0 +1,119 @@
+name: military-computation
+family: domain-science
+version: "1.0.0"
+tier: B
+status: published
+query_language: cypher
+description: >
+  Tests xrayGraphDB's built-in military physics functions:
+  mil.radar_horizon(antenna_height_m, target_height_m) and
+  mil.ballistic_range(velocity_mps, angle_deg). radar_horizon computes the
+  maximum line-of-sight detection range between an elevated radar antenna and
+  a target at a given height, accounting for Earth's curvature with the standard
+  4/3 effective Earth radius model used by all military radar systems.
+  ballistic_range computes the maximum ground range of a projectile in vacuum
+  using the standard ballistic range equation, enabling threat envelope modeling
+  and fire support planning. Evaluating both functions across a radar network
+  graph in a single Cypher query provides immediate tactical picture generation
+  without external compute services. No other graph database provides native
+  radar horizon or ballistics range functions.
+
+  Dataset: synthetic radar node catalog representing ground-based or shipborne
+  radar installations with antenna height and maximum projectile velocity
+  properties, reflecting realistic air defense or fire support network topologies.
+
+dataset:
+  name: synthetic-radar-catalog
+  type: synthetic
+  generator: uniform_nodes
+  generator_params:
+    node_count: 5000
+    node_label: Radar
+    properties:
+      id: integer
+      antenna_height: float
+      max_velocity: float
+      lat: float
+      lon: float
+    antenna_height_range:
+      - 5.0
+      - 500.0
+    max_velocity_range:
+      - 200.0
+      - 1800.0
+    lat_range:
+      - -60.0
+      - 60.0
+    lon_range:
+      - -180.0
+      - 180.0
+    seed: 1944
+
+query_template: >
+  MATCH (n:Radar)
+  WITH n,
+       mil.radar_horizon(n.antenna_height, $target_height) AS horizon_m,
+       mil.ballistic_range(n.max_velocity, 45.0) AS max_range_m
+  RETURN n.id,
+         horizon_m / 1000 AS horizon_km,
+         max_range_m / 1000 AS range_km
+  ORDER BY horizon_km DESC
+  LIMIT $limit
+
+parameters:
+  target_height:
+    type: float
+    default: 10.0
+    min: 0.0
+    max: 30000.0
+    description: >
+      Height of the target above ground level in meters. Default 10 m
+      represents a low-flying aircraft or surface vessel.
+  limit:
+    type: integer
+    default: 200
+    min: 1
+    max: 5000
+    description: >
+      Maximum number of radar nodes to return, ordered by descending radar
+      horizon range. Default 200.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 1
+  expected_row_count_max: 200
+  expected_columns:
+    - "n.id"
+    - horizon_km
+    - range_km
+  description: >
+    Must return up to limit rows ordered by descending horizon_km. A radar
+    antenna at 30 m height against a 10 m target yields a horizon of
+    approximately 27 km. A projectile at 900 m/s at 45 degrees has a vacuum
+    ballistic range of approximately 82.6 km. Values must be positive real
+    numbers expressed in kilometers.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - rows_out
+
+tags:
+  - domain-science
+  - military
+  - radar
+  - ballistics
+  - tier-b
+
+warm_runs: 20
+timeout_seconds: 120
+
+notes: >
+  Tier B — xrayGraphDB only. Other engines return UNSUPPORTED. mil.radar_horizon
+  applies the 4/3 effective Earth radius model: range = sqrt(2 * k * R_e) *
+  (sqrt(h_a) + sqrt(h_t)) where k = 4/3 and R_e = 6371000 m. mil.ballistic_range
+  applies the vacuum flat-Earth range equation: R = v^2 * sin(2*theta) / g.
+  Applications include air defense network coverage graphs, fire support
+  deconfliction, and sensor fusion architecture analysis. The 45-degree optimum
+  angle is hardcoded in the query template to benchmark the maximum-range case;
+  the angle can be parameterized for angle-sweep studies.

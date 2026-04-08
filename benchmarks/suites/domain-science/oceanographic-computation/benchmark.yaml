@@ -1,0 +1,126 @@
+name: oceanographic-computation
+family: domain-science
+version: "1.0.0"
+tier: B
+status: published
+query_language: cypher
+description: >
+  Tests xrayGraphDB's built-in oceanographic physics functions:
+  ocean.sound_speed(temp_c, salinity_psu, depth_m) and
+  ocean.drift(lat, lon, current_speed_mps, bearing_deg, hours).
+  sound_speed computes the speed of sound in seawater using the
+  UNESCO/Mackenzie equation, which is essential for sonar modeling, submarine
+  detection, and acoustic communications. drift projects the displacement of a
+  floating object (buoy, vessel, debris, oil spill) given ocean current
+  parameters over a time window. Together these functions enable oceanographic
+  sensor network analysis directly in the graph, with no external compute layer
+  required. No other graph database has built-in oceanographic physics functions.
+
+  Dataset: synthetic ocean station nodes representing CTD (conductivity,
+  temperature, depth) sensor deployments with realistic oceanographic properties.
+
+dataset:
+  name: synthetic-ocean-stations
+  type: synthetic
+  generator: uniform_nodes
+  generator_params:
+    node_count: 10000
+    node_label: OceanStation
+    properties:
+      id: integer
+      lat: float
+      lon: float
+      temp: float
+      salinity: float
+      depth: float
+      current_speed: float
+      current_bearing: float
+    lat_range:
+      - -70.0
+      - 70.0
+    lon_range:
+      - -180.0
+      - 180.0
+    temp_range:
+      - -2.0
+      - 30.0
+    salinity_range:
+      - 30.0
+      - 38.0
+    depth_range:
+      - 0.0
+      - 6000.0
+    current_speed_range:
+      - 0.0
+      - 3.0
+    current_bearing_range:
+      - 0.0
+      - 360.0
+    seed: 314
+
+query_template: >
+  MATCH (n:OceanStation)
+  WITH n,
+       ocean.sound_speed(n.temp, n.salinity, n.depth) AS sound_speed,
+       ocean.drift(n.lat, n.lon, n.current_speed, n.current_bearing, $hours) AS drift_pos
+  RETURN n.id,
+         sound_speed,
+         drift_pos[0] AS drift_lat,
+         drift_pos[1] AS drift_lon
+  ORDER BY sound_speed DESC
+  LIMIT $limit
+
+parameters:
+  hours:
+    type: float
+    default: 24.0
+    min: 0.1
+    max: 720.0
+    description: >
+      Drift simulation duration in hours. Default 24 hours (one day). Larger
+      values stress the haversine drift integration over longer arcs.
+  limit:
+    type: integer
+    default: 500
+    min: 1
+    max: 10000
+    description: >
+      Maximum number of stations to return, ordered by descending sound speed.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 1
+  expected_row_count_max: 500
+  expected_columns:
+    - "n.id"
+    - sound_speed
+    - drift_lat
+    - drift_lon
+  description: >
+    Must return up to limit rows ordered by descending sound_speed. Sound speed
+    values are typically 1400–1550 m/s in seawater. Drift coordinates must be
+    within valid WGS-84 bounds. All rows must have non-null physics results.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - rows_out
+
+tags:
+  - domain-science
+  - oceanography
+  - sound-speed
+  - drift
+  - tier-b
+
+warm_runs: 20
+timeout_seconds: 120
+
+notes: >
+  Tier B — xrayGraphDB only. Other engines return UNSUPPORTED. No other graph
+  database has built-in oceanographic physics functions. ocean.sound_speed
+  implements the Mackenzie (1981) nine-term equation (±0.07 m/s accuracy).
+  ocean.drift applies a geodetic dead-reckoning step using the given current
+  vector over the specified time window. Applications include anti-submarine
+  warfare sensor graphs, marine debris tracking, and oceanographic survey
+  network analysis.
