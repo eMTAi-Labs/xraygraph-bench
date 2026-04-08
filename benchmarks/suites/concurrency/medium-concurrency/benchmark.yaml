@@ -1,0 +1,85 @@
+name: medium-concurrency
+family: concurrency
+version: "1.0.0"
+tier: A
+status: published
+query_language: cypher
+description: >
+  Medium concurrency benchmark with 16 parallel clients issuing the same
+  point-lookup query. Tests connection pool efficiency, thread scheduling
+  fairness, and lock contention under moderate parallelism. Comparing QPS
+  and tail latency against the single-client baseline reveals the engine's
+  concurrency scaling factor. Engines with lock-free readers, connection
+  multiplexing, or thread-per-core architectures should maintain near-linear
+  QPS scaling at this concurrency level.
+
+citation: >
+  The 16-client level corresponds to a typical application server connection
+  pool size (HikariCP default: 10, Neo4j driver default: 100). Methodology
+  follows YCSB workload-A (50/50 read/update) adapted for read-only graph
+  queries (Cooper et al., 2010).
+
+dataset:
+  name: synthetic-powerlaw-100k
+  type: synthetic
+  generator: powerlaw_graph
+  generator_params:
+    node_count: 100000
+    edge_count: 500000
+    exponent: 2.5
+    label: N
+    edge_type: E
+    seed: 42
+
+query_template: >
+  MATCH (n:N)
+  WHERE n.id = $target_id
+  RETURN n.id
+
+parameters:
+  clients:
+    type: integer
+    default: 16
+    min: 2
+    max: 64
+    description: >
+      Number of concurrent client threads. Each client maintains its own
+      connection and issues queries independently. The default of 16 matches
+      a typical mid-size application deployment.
+  iterations_per_client:
+    type: integer
+    default: 500
+    min: 50
+    max: 50000
+    description: >
+      Number of queries each client executes. Total queries = clients *
+      iterations_per_client. Higher values improve statistical confidence
+      for per-client latency distributions.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 0
+  expected_row_count_max: 1
+  expected_columns: [id]
+  description: >
+    Each point lookup returns 0 or 1 row. Under concurrency, the engine must
+    maintain read consistency — no phantom rows or missed results due to
+    concurrent access.
+
+metrics:
+  - qps
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - concurrency
+
+tags:
+  - concurrency
+  - medium
+  - connection-pool
+  - thread-scheduling
+  - scaling
+  - latency
+
+warm_runs: 5
+timeout_seconds: 600

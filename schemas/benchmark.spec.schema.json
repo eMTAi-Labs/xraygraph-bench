@@ -23,7 +23,7 @@
     },
     "family": {
       "type": "string",
-      "enum": ["core-executor", "graph-breakers", "end-to-end", "public-compare", "compile", "gfql", "emergent-edge", "hybrid-vector", "ingestion"],
+      "enum": ["core-executor", "graph-breakers", "end-to-end", "public-compare", "compile", "gfql", "emergent-edge", "hybrid-vector", "ingestion", "concurrency"],
       "description": "Benchmark family this spec belongs to."
     },
     "version": {

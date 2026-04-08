@@ -1,0 +1,106 @@
+name: segmentation-complex
+family: core-executor
+version: "1.0.0"
+tier: A
+status: published
+query_language: cypher
+description: >
+  Measures execution performance of a complex multi-segment pipeline with 5+
+  segments and multiple materialization breakers. The query performs a 2-hop
+  traversal with DISTINCT aggregation, a reach filter via WITH, then a second
+  MATCH for neighbor collection with collect() aggregation, and a final sort.
+  This stresses the executor's ability to manage deep pipeline chains, multiple
+  hash-aggregate operators, expand-into patterns, and large intermediate
+  cardinalities. Engines with lazy evaluation, compiled pipelines, or fused
+  operators should separate from interpreted engines here.
+
+citation: >
+  Multi-hop aggregation with intermediate WITH clauses is the standard Cypher
+  pattern for reachability queries (LDBC SNB Interactive, 2021). The 2-hop +
+  collect pattern tests both expand and aggregation pipeline fusion, exposing
+  engines that fall back to row-at-a-time processing at pipeline boundaries.
+
+dataset:
+  name: synthetic-powerlaw-1m
+  type: synthetic
+  generator: powerlaw_graph
+  generator_params:
+    node_count: 1000000
+    edge_count: 5000000
+    exponent: 2.5
+    label: N
+    edge_type: E
+    seed: 42
+
+query_template: >
+  MATCH (n:N)-[:E]->(m)-[:E]->(k)
+  WHERE n.id < $max_id
+  WITH n, count(DISTINCT k) AS reach
+  WHERE reach > $min_reach
+  WITH n, reach
+  MATCH (n)-[:E]->(neighbor)
+  RETURN n.id, reach, collect(neighbor.id) AS neighbors
+  ORDER BY reach DESC
+  LIMIT $limit
+
+parameters:
+  max_id:
+    type: integer
+    default: 5000
+    min: 100
+    max: 500000
+    description: >
+      Upper bound on source node id for the initial scan. Lower values limit
+      the 2-hop explosion; higher values stress memory and intermediate
+      materialization at every pipeline break.
+  min_reach:
+    type: integer
+    default: 5
+    min: 1
+    max: 10000
+    description: >
+      Minimum 2-hop distinct reachability count. Filters out nodes with low
+      transitive connectivity. Acts as a selectivity gate between the two
+      pipeline stages.
+  limit:
+    type: integer
+    default: 50
+    min: 1
+    max: 5000
+    description: >
+      Maximum number of final result rows after the ORDER BY. Controls memory
+      pressure from the collect() aggregation on the remaining nodes.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 1
+  expected_row_count_max: 50
+  expected_columns: [id, reach, neighbors]
+  description: >
+    With max_id=5000, min_reach=5, and limit=50 on a power-law graph, the
+    result should contain between 1 and 50 rows. High-degree hub nodes in
+    the power-law graph will dominate the results. The neighbors column is
+    a list, so engines must handle collection serialization correctly.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - compile_ms
+  - segments
+  - breakers
+  - rows_out
+  - cache_hit
+  - fallback
+
+tags:
+  - core
+  - segmentation
+  - complex
+  - multi-hop
+  - aggregation
+  - collect
+  - pipeline-breaker
+  - reachability
+
+warm_runs: 10
+timeout_seconds: 300

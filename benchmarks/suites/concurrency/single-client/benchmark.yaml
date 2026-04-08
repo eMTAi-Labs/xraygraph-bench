@@ -1,0 +1,74 @@
+name: single-client
+family: concurrency
+version: "1.0.0"
+tier: A
+status: published
+query_language: cypher
+description: >
+  Baseline concurrency benchmark with a single client issuing sequential
+  queries. Establishes the single-threaded throughput ceiling (QPS) and
+  latency floor against which all multi-client benchmarks are compared.
+  The query is a simple indexed point lookup to isolate connection and
+  execution overhead from query complexity. Any degradation from this
+  baseline under concurrency indicates contention in connection pooling,
+  lock management, or thread scheduling.
+
+citation: >
+  Single-client baseline follows the YCSB (Yahoo! Cloud Serving Benchmark)
+  methodology where single-threaded throughput is the reference point for
+  scalability analysis (Cooper et al., 2010).
+
+dataset:
+  name: synthetic-powerlaw-100k
+  type: synthetic
+  generator: powerlaw_graph
+  generator_params:
+    node_count: 100000
+    edge_count: 500000
+    exponent: 2.5
+    label: N
+    edge_type: E
+    seed: 42
+
+query_template: >
+  MATCH (n:N)
+  WHERE n.id = $target_id
+  RETURN n.id
+
+parameters:
+  iterations:
+    type: integer
+    default: 1000
+    min: 100
+    max: 100000
+    description: >
+      Number of sequential query executions. Higher values improve statistical
+      confidence but increase total runtime. The target_id cycles through the
+      node id space to avoid cache warming on a single key.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 0
+  expected_row_count_max: 1
+  expected_columns: [id]
+  description: >
+    Each point lookup returns 0 or 1 row depending on whether the target_id
+    exists in the dataset. Across iterations the result should always be
+    exactly 0 or 1 row per query.
+
+metrics:
+  - qps
+  - latency_p50
+  - latency_p95
+  - latency_p99
+
+tags:
+  - concurrency
+  - baseline
+  - single-client
+  - sequential
+  - throughput
+  - latency
+
+warm_runs: 5
+timeout_seconds: 300
