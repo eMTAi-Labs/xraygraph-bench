@@ -141,14 +141,35 @@ Person: Carlos (id=30786325586478, 99 KNOWS edges)
 | COUNT 69M edges | 1.53ms | 84.06ms | **54.9x** |
 | Load 69M edges | 1.4s | 9,668s | **6,906x** |
 
-### 3.2 Industry Context
+### 3.2 Friendster — 1.8 Billion Edges on a Single Node
 
-| System | LDBC SF1 Load Time | Edge Rate | Data Source |
-|--------|-------------------|-----------|-------------|
-| **xrayGraphDB** | **7 min (GID path)** | **724K edges/s** | This report |
-| Neo4j | hours (estimated) | ~5-10K/s | LDBC 2019 study |
-| Memgraph | 2.7 hours (69M edges) | ~7K/s | xrayGraphDB docs |
-| TigerGraph | minutes | N/A | LDBC 2019 audit |
+**Dataset:** Stanford SNAP Friendster social network
+- 65,608,366 nodes, 1,806,067,135 edges (undirected)
+- Raw file: 21GB edge-list (tab-separated)
+
+**Load via CSR mmap builder (xrayProtocol BULK_IMPORT_FILE):**
+
+| Version | Time | Edge Rate | Peak Memory | CSR on Disk |
+|---------|------|-----------|-------------|-------------|
+| v4.9.2 | 28.8 min | 1,045,801/s | 69GB | 15GB |
+| **v4.9.3** | **25.7 min** | **1,169,578/s** | **69GB** | **15GB** |
+
+**No other graph database has published single-node Friendster load benchmarks.**
+
+For comparison:
+- Memgraph crashed at 150K of 69M LiveJournal edges (26x smaller than Friendster)
+- Neo4j — no published Friendster numbers
+- TigerGraph — no published single-node Friendster numbers
+
+### 3.3 Industry Context
+
+| System | Best Published Load | Dataset | Source |
+|--------|-------------------|---------|--------|
+| **xrayGraphDB** | **1.17M edges/s** | **Friendster 1.8B edges** | **This report** |
+| **xrayGraphDB** | **724K edges/s** | LDBC SF1 7.9M edges | This report |
+| Neo4j | ~5-10K/s (est.) | LDBC SF1 | LDBC 2019 study |
+| Memgraph | ~7K/s (failed) | LiveJournal 69M edges | xrayGraphDB docs |
+| TigerGraph | N/A | LDBC (audited) | LDBC 2019 audit |
 
 ---
 
