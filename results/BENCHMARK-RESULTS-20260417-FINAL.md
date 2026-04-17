@@ -178,6 +178,22 @@ Person: Jie Zhang (id=28587302324330, 149 KNOWS edges)
 
 **No other graph database has published single-node Friendster load benchmarks.**
 
+### 3.3 Friendster CSR Query Performance (xrayProtocol, Server 2)
+
+**65.6M nodes, 1.8B edges, CSR mmap on NVMe**
+
+| Query | Result | Time | Description |
+|-------|--------|------|-------------|
+| **degree(101)** | 203 | **0.07ms (70µs)** | Instant adjacency count |
+| **BFS(101, 1-hop)** | 203 | **4.6ms** | Direct neighbors |
+| **BFS(101, 2-hop)** | 5,195 | **0.6ms** | 2nd-degree (cached) |
+| **BFS(101, 3-hop)** | 130,342 | **4.3ms** | 130K nodes in 4ms |
+| **BFS(101, 4-hop)** | 5,118,927 | **164ms** | **5.1M nodes in 164ms** |
+| **BFS(101, 5-hop)** | 41,389,253 | **4,571ms** | 41M nodes (63% of graph) |
+| **BFS(hub, 3-hop)** | 1,995,289 | **109ms** | **2M nodes from degree-284 hub** |
+
+**BFS reaching 5.1 million nodes across 1.8 billion edges in 164 milliseconds on a single server.**
+
 For comparison:
 - Memgraph crashed at 150K of 69M LiveJournal edges (26x smaller than Friendster)
 - Neo4j — no published Friendster numbers
