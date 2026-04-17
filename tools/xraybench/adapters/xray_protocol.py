@@ -169,6 +169,169 @@ class XrayProtocolClient:
 
         return (version, caps, info_str)
 
+    # ------------------------------------------------------------------
+    # Bulk insert API
+    # ------------------------------------------------------------------
+
+    def bulk_begin(self, fmt: int = 0, hint: str = "", flags: int = 0) -> None:
+        """Send BULK_INSERT_BEGIN to start a bulk session."""
+        hint_bytes = hint.encode("utf-8")
+        payload = struct.pack("<B", fmt)
+        payload += struct.pack("<I", len(hint_bytes)) + hint_bytes
+        payload += struct.pack("<I", flags)
+        self._send_frame(0x20, 0, payload)
+        msg_type, _, _, resp = self._recv_frame()
+        if msg_type == 0x26:  # BULK_INSERT_ERROR
+            err = self._decode_error(resp)
+            raise XrayProtocolError(f"BULK_BEGIN error: {err['message']}")
+
+    def bulk_upsert_nodes(
+        self,
+        label: str,
+        key_col: str,
+        rows: list[dict[str, Any]],
+    ) -> tuple[int, int]:
+        """Send BULK_UPSERT_NODES batch.
+
+        Wire format (from executor_bridge.hpp):
+          u32 node_count
+          u32_len + string key_name
+          u32 prop_count
+          [prop_count] u32_len + string prop_name
+          u32 label_count
+          [label_count] u32_len + string label_name
+          [node_count]:
+            u32_len + string key_value
+            [prop_count] typed_value (tag byte + value)
+
+        Type tags: 0=string, 1=int64, 2=double, 3=bool, 4=null
+        Legacy (tag > 4): all-string (u32_len + string)
+
+        Returns (nodes_created, time_ms).
+        """
+        if not rows:
+            return (0, 0)
+
+        # Collect property names (excluding key)
+        prop_names: list[str] = []
+        for row in rows:
+            for k in row:
+                if k != key_col and k not in prop_names:
+                    prop_names.append(k)
+
+        def write_string(b: bytearray, s: str) -> None:
+            sb = s.encode("utf-8")
+            b += struct.pack("<I", len(sb))
+            b += sb
+
+        def write_typed(b: bytearray, val: Any) -> None:
+            if val is None:
+                b += struct.pack("<B", 4)  # null tag
+            elif isinstance(val, bool):
+                b += struct.pack("<B", 3)  # bool tag
+                b += struct.pack("<B", 1 if val else 0)
+            elif isinstance(val, int):
+                b += struct.pack("<B", 1)  # int64 tag
+                b += struct.pack("<q", val)
+            elif isinstance(val, float):
+                b += struct.pack("<B", 2)  # double tag
+                b += struct.pack("<d", val)
+            else:
+                b += struct.pack("<B", 0)  # string tag
+                sb = str(val).encode("utf-8")
+                b += struct.pack("<I", len(sb))
+                b += sb
+
+        buf = bytearray()
+        # node_count
+        buf += struct.pack("<I", len(rows))
+        # key_name
+        write_string(buf, key_col)
+        # prop_count
+        buf += struct.pack("<I", len(prop_names))
+        # prop_names
+        for pn in prop_names:
+            write_string(buf, pn)
+        # label_count + labels
+        buf += struct.pack("<I", 1)
+        write_string(buf, label)
+        # per-node data
+        for row in rows:
+            write_string(buf, str(row[key_col]))
+            for pn in prop_names:
+                write_typed(buf, row.get(pn))
+
+        self._send_frame(0x27, 0, bytes(buf))
+        msg_type, _, _, resp = self._recv_frame()
+        if msg_type == 0x26:  # ERROR
+            err = self._decode_error(resp)
+            raise XrayProtocolError(f"BULK_UPSERT error: {err['message']}")
+        if msg_type == 0x25 and len(resp) >= 12:  # ACK
+            nodes = struct.unpack_from("<I", resp, 0)[0]
+            time_ms = struct.unpack_from("<I", resp, 8)[0]
+            return (nodes, time_ms)
+        return (0, 0)
+
+    def bulk_insert_edges(
+        self,
+        edges: list[dict[str, str]],
+        prop_names: list[str] | None = None,
+    ) -> tuple[int, int]:
+        """Send BULK_INSERT_EDGES batch.
+
+        Each edge dict must have 'from', 'to', 'type' keys,
+        plus any property values matching prop_names.
+
+        Returns (edges_created, time_ms).
+        """
+        if not edges:
+            return (0, 0)
+
+        prop_names = prop_names or []
+        edge_count = len(edges)
+        prop_count = len(prop_names)
+
+        payload = struct.pack("<II", edge_count, prop_count)
+
+        # Property name strings
+        for pn in prop_names:
+            pn_bytes = pn.encode("utf-8")
+            payload += struct.pack("<I", len(pn_bytes)) + pn_bytes
+
+        # Per-edge data: from_fnid, to_fnid, edge_type, [prop_values]
+        for edge in edges:
+            for field in ["from", "to", "type"]:
+                val = str(edge[field]).encode("utf-8")
+                payload += struct.pack("<I", len(val)) + val
+            for pn in prop_names:
+                val = str(edge.get(pn, "")).encode("utf-8")
+                payload += struct.pack("<I", len(val)) + val
+
+        self._send_frame(0x22, 0, payload)
+        msg_type, _, _, resp = self._recv_frame()
+        if msg_type == 0x26:  # ERROR
+            err = self._decode_error(resp)
+            raise XrayProtocolError(f"BULK_INSERT_EDGES error: {err['message']}")
+        if msg_type == 0x25:  # ACK
+            edges_created = struct.unpack_from("<I", resp, 4)[0]
+            time_ms = struct.unpack_from("<I", resp, 8)[0]
+            return (edges_created, time_ms)
+        return (0, 0)
+
+    def bulk_commit(self) -> tuple[int, int, int]:
+        """Send BULK_INSERT_COMMIT. Returns (nodes, edges, time_ms)."""
+        self._send_frame(0x24, 0, b"")
+        msg_type, _, _, resp = self._recv_frame()
+        if msg_type == 0x26:
+            err = self._decode_error(resp)
+            raise XrayProtocolError(f"BULK_COMMIT error: {err['message']}")
+        if msg_type == 0x25 and len(resp) >= 12:
+            n = struct.unpack_from("<I", resp, 0)[0]
+            e = struct.unpack_from("<I", resp, 4)[0]
+            t = struct.unpack_from("<I", resp, 8)[0]
+            return (n, e, t)
+        return (0, 0, 0)
+
     def close(self) -> None:
         """Close TCP connection."""
         if self._sock is not None:
