@@ -51,21 +51,43 @@
 | Post HAS_TAG | 713,258 | 0.9s | 750,990/s |
 | Forum HAS_TAG | 309,766 | 0.4s | 775,918/s |
 
-### 1.2 LDBC Interactive Query Performance (Bolt)
+### 1.2 LDBC SF1 Load Time Progression
 
-Person: Carlos (id=30786325586478, 99 KNOWS edges)
+| Version | Binary | Total | Nodes (3.18M) | Edges (7.9M) | Edge Rate |
+|---------|--------|-------|---------------|-------------|-----------|
+| v4.9.2 (Cypher escaped) | 1st | 631s (10.5 min) | 567s | 11.0s (724K/s) | 724K/s |
+| v4.9.2 (fixed loader) | 2nd | 379s (6.3 min) | 368s | 11.3s (700K/s) | 700K/s |
+| **v4.9.3 (strtoll + index)** | **3rd** | **192s (3.2 min)** | **180s** | **11s (700K/s)** | **700K/s** |
 
-| Query | Server 1 (32GB) | Server 2 (187GB) | Description |
+**3.2 minutes for full LDBC SF1** — including 3.18M nodes with integer IDs and working property indexes.
+
+### 1.3 LDBC Interactive Query Performance (Bolt, v4.9.3)
+
+Person: Mahinda Perera (id=933, 96 KNOWS edges) — Server 1 (32GB, Xeon E3-1265L)
+
+| Query | Warm (ms) | Rows | Description |
 |---|---|---|---|
-| **IS1: Person profile** | **0.8ms** | **0.9ms** | Single node property lookup |
-| **IS3: Friend count** | **1.2ms** | **1.2ms** | COUNT of KNOWS edges |
-| **IS3: Friends LIMIT 20** | **4.8ms** | **1.1ms** | Sorted friend list |
-| **2-hop friend count** | **361ms** | **1.8ms** | DISTINCT traversal through 99 friends |
-| **Person count (9.9K)** | **1.0ms** | **1.6ms** | COUNT all Person nodes |
-| **Edge count (7.96M)** | **1.2ms** | **1.3ms** | COUNT all relationships |
-| **Tag popularity (3.4M HAS_TAG)** | **5,863ms** | **5,245ms** | Full edge scan + aggregation |
+| **IS1: Person profile** | **1.1** | 1 | Property lookup by indexed integer ID |
+| **IS3: Friend count** | **1.4** | 1 | COUNT of 96 KNOWS edges |
+| **IS3: Friends LIMIT 20** | **4.5** | 20 | Sorted friend list |
+| **2-hop friend count** | **194** | 1 | 96 friends → DISTINCT 2-hop traversal |
+| **IC5: Forums of friends** | **1.9** | — | HAS_MEMBER traversal |
+| **IC11: Friends work** | **1.7** | — | WORK_AT traversal |
+| **IC6: Tag co-occurrence** | **1.6** | — | Multi-hop tag discovery |
+| **Tag popularity (3.4M scan)** | **4,762** | 10 | Full HAS_TAG edge scan + aggregation |
+| **Person count (9.9K)** | **1.4** | 1 | COUNT all Person nodes |
+| **Edge count (7.96M)** | **1.1** | 1 | COUNT all relationships |
 
-**2-hop traversal: 361ms (32GB) → 1.8ms (187GB) — 200x faster** due to full page cache residency on the production server.
+Person: Jie Zhang (id=28587302324330, 149 KNOWS edges)
+
+| Query | Warm (ms) | Rows |
+|---|---|---|
+| **IS1: Person profile** | **1.0** | 1 |
+| **IS3: Friend count** | **2.1** | 1 (149 friends) |
+| **IS3: Friends LIMIT 20** | **6.1** | 20 |
+| **2-hop friend count** | **391.5** | 1 (1,945 distinct) |
+
+**Sub-2ms for all single-hop queries. 1.1ms to count 8 million edges.**
 
 ---
 
