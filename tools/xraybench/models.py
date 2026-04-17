@@ -242,10 +242,17 @@ class ExecuteResult:
     wall_ms: float
     compile_ms: float | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    _row_count_override: int | None = field(default=None, repr=False)
 
     @property
     def row_count(self) -> int:
+        if self._row_count_override is not None:
+            return self._row_count_override
         return len(self.rows)
+
+    @row_count.setter
+    def row_count(self, value: int) -> None:
+        self._row_count_override = value
 
 
 @dataclass

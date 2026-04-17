@@ -133,12 +133,12 @@ def generate_cypher_from_edges(
     # 3. Create index
     statements.append(f"CREATE INDEX ON :{node_label}(id)")
 
-    # 4. Create edges in batches
+    # 4. Create edges in batches — use Cypher map syntax (unquoted keys)
     for i in range(0, len(edges), batch_size):
         batch = edges[i : i + batch_size]
-        pairs_literal = str([{"s": s, "t": t} for s, t in batch])
+        pairs_cypher = "[" + ", ".join(f"{{s: {s}, t: {t}}}" for s, t in batch) + "]"
         statements.append(
-            f"UNWIND {pairs_literal} AS e "
+            f"UNWIND {pairs_cypher} AS e "
             f"MATCH (a:{node_label} {{id: e.s}}), (b:{node_label} {{id: e.t}}) "
             f"CREATE (a)-[:{edge_type}]->(b)"
         )

@@ -102,21 +102,40 @@ class XrayGraphDBAdapter(BaseAdapter):
             with self._driver.session() as session:
                 session.run("RETURN 1 AS health").single()
 
-            # Attempt to get version / build from mg.info()
+            # Extract version from Bolt server metadata
             with self._driver.session() as session:
                 try:
-                    result = session.run("CALL mg.info()")
-                    info: dict[str, str] = {}
-                    for record in result:
-                        key = record.get("key", "")
-                        val = record.get("value", "")
-                        if key:
-                            info[key] = val
-                    self._version = info.get("version", "unknown")
-                    self._build = info.get("build", "unknown")
+                    result = session.run("RETURN 1 AS x")
+                    result.single()
+                    summary = result.consume()
+                    # neo4j driver v5+ exposes server metadata
+                    meta = getattr(summary, "metadata", {}) or {}
+                    # The 'server' key from Bolt HELLO response (e.g. "xrayGraphDB/4.9.2")
+                    server_agent = meta.get("server", "")
+                    if not server_agent and hasattr(summary, "server_info"):
+                        server_agent = getattr(summary.server_info, "agent", "")
+                    if server_agent and "/" in server_agent:
+                        self._version = server_agent.split("/")[-1]
+                        self._build = server_agent
                 except Exception:
-                    self._version = "unknown"
-                    self._build = "unknown"
+                    pass
+
+                # Fallback: try xray.info() or mg.info()
+                if self._version == "unknown":
+                    for proc in ("CALL xray.info()", "CALL mg.info()"):
+                        try:
+                            info_result = session.run(proc)
+                            info: dict[str, str] = {}
+                            for record in info_result:
+                                key = record.get("key", "")
+                                val = record.get("value", "")
+                                if key:
+                                    info[key] = val
+                            self._version = info.get("version", "unknown")
+                            self._build = info.get("build", "unknown")
+                            break
+                        except Exception:
+                            continue
 
             logger.info("Connected to xrayGraphDB %s at %s", self._version, uri)
             return ConnectionInfo(
@@ -245,7 +264,8 @@ class XrayGraphDBAdapter(BaseAdapter):
     def clear_caches(self) -> CacheClearReport:
         """Clear xrayGraphDB plan and execution caches.
 
-        Tries "FREE MEMORY" and "CALL mg.clear_cache()" in sequence.
+        Tries xrayGraphDB-specific commands first, then falls back to
+        Memgraph-compatible commands.
 
         Returns:
             CacheClearReport indicating success/failure.
@@ -256,14 +276,26 @@ class XrayGraphDBAdapter(BaseAdapter):
         cleared = False
         messages: list[str] = []
 
+        # xrayGraphDB cache-clear commands in priority order
+        cache_cmds = [
+            "CALL xray.clear_cache()",
+            "CALL xray.clear_plan_cache()",
+            "FREE MEMORY",
+        ]
+
         with self._driver.session() as session:
-            for cmd in ("FREE MEMORY", "CALL mg.clear_cache()"):
+            for cmd in cache_cmds:
                 try:
-                    session.run(cmd)
+                    session.run(cmd).consume()
                     cleared = True
                     messages.append(f"{cmd}: ok")
+                    break  # One successful clear is enough
                 except Exception as exc:
                     messages.append(f"{cmd}: {exc}")
+
+        if not cleared:
+            # Cache clear is best-effort — benchmark can still run
+            messages.append("cache clear unavailable (non-fatal)")
 
         self._last_profile = {}
         return CacheClearReport(cleared=cleared, detail="; ".join(messages))
