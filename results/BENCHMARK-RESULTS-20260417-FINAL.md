@@ -232,7 +232,19 @@ Person: Maithripala Fernando (id=7413, 12 KNOWS friends, top-connected in SF1)
 | 5 | 50,868,385 | **9,342ms** | 77.5% |
 | 6 | 62,416,154 | **16,451ms** | 95.1% |
 
-**BFS reaching 5.1 million nodes across 1.8 billion edges in 533 milliseconds on a single server.**
+### 3.6 Friendster BFS — 3-Server Comparison (Warm, xrayProtocol)
+
+| Hops | Reached | S1 (32GB, 4C) | S2 (187GB, 44C) | S3 (503GB, 64C) |
+|------|---------|--------------|-----------------|-----------------|
+| 1 | 203 | N/A | 8.2ms | **0.6ms** |
+| 2 | 5,195 | N/A | 0.9ms | **0.4ms** |
+| 3 | 130,342 | N/A | 25.9ms | **3.8ms** |
+| 4 | 5,118,927 | N/A | 533ms | **109ms** |
+| 5 | 41,389,253 | N/A | 5,093ms | **4,284ms** |
+| 6 | 62,204,443 | N/A | 15,975ms | 17,763ms |
+| 7 | 63,941,886 | N/A | 17,320ms | 19,169ms |
+
+**503GB EPYC: 5.1 million nodes across 1.8 billion edges in 109 milliseconds.**
 
 For comparison:
 - Memgraph crashed at 150K of 69M LiveJournal edges (26x smaller than Friendster)
