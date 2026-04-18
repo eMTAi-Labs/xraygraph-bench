@@ -119,6 +119,20 @@ Person: Maithripala Fernando (id=7413, 12 KNOWS friends, top-connected in SF1)
 
 **In-memory eliminates page faults — multi-hop IC queries see 3.6-5.5x speedup over mmap.**
 
+### 1.6 GPU Analytics — Server 2 (Tesla T4, In-Memory, 3.18M nodes / 17.2M edges)
+
+| Procedure | Time | GPU Util | VRAM | Notes |
+|-----------|------|----------|------|-------|
+| **PageRank (20 iter)** | **5,034ms** | **48-59%** | 237MB | GPU-accelerated |
+| **Triangle count** | **3,281ms** | **100%** | 211MB | Full GPU compute |
+| **Community detection (20 iter)** | **41,479ms** | **100%** | 213MB | GPU-accelerated |
+| **Betweenness centrality (50)** | **11,917ms** | 0% | 105MB | CPU-only, max centrality=13B |
+| **Connected components** | **4,339ms** | 0% | 105MB | CPU-only |
+| **Louvain** | **78,598ms** | 0% | 105MB | CPU-only |
+
+Tesla T4 activates on PageRank (48-59%), Triangle count (100%), and Community detection (100%).
+VRAM jumps from 105MB idle to 237MB during GPU kernels.
+
 ---
 
 ## 2. xrayProtocol Microbenchmarks (Server 1, 100K nodes)
