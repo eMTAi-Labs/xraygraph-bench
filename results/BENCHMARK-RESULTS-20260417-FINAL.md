@@ -209,7 +209,30 @@ Person: Maithripala Fernando (id=7413, 12 KNOWS friends, top-connected in SF1)
 | **BFS(101, 5-hop)** | 41,389,253 | **4,571ms** | 41M nodes (63% of graph) |
 | **BFS(hub, 3-hop)** | 1,995,289 | **109ms** | **2M nodes from degree-284 hub** |
 
-**BFS reaching 5.1 million nodes across 1.8 billion edges in 164 milliseconds on a single server.**
+### 3.4 Friendster BFS — Full Hop-by-Hop (Vertex 101, degree 203)
+
+| Hops | Nodes Reached | Latency | % of Graph |
+|------|--------------|---------|------------|
+| 1 | 203 | **8.2ms** | 0.0% |
+| 2 | 5,195 | **0.9ms** | 0.0% |
+| 3 | 130,342 | **25.9ms** | 0.2% |
+| 4 | 5,118,927 | **533ms** | 7.8% |
+| 5 | 41,389,253 | **5,093ms** | 63.1% |
+| 6 | 62,204,443 | **15,975ms** | 94.8% |
+| 7 | 63,941,886 | **17,320ms** | 97.5% |
+
+### 3.5 Friendster BFS — Hub Vertex (Vertex 100000, degree 226)
+
+| Hops | Nodes Reached | Latency | % of Graph |
+|------|--------------|---------|------------|
+| 1 | 226 | **7.1ms** | 0.0% |
+| 2 | 17,412 | **8.8ms** | 0.0% |
+| 3 | 732,309 | **32.1ms** | 1.1% |
+| 4 | 14,218,664 | **831ms** | 21.7% |
+| 5 | 50,868,385 | **9,342ms** | 77.5% |
+| 6 | 62,416,154 | **16,451ms** | 95.1% |
+
+**BFS reaching 5.1 million nodes across 1.8 billion edges in 533 milliseconds on a single server.**
 
 For comparison:
 - Memgraph crashed at 150K of 69M LiveJournal edges (26x smaller than Friendster)
