@@ -87,7 +87,24 @@ Person: Jie Zhang (id=28587302324330, 149 KNOWS edges)
 | **IS3: Friends LIMIT 20** | **6.1** | 20 |
 | **2-hop friend count** | **391.5** | 1 (1,945 distinct) |
 
-**Sub-2ms for all single-hop queries. 1.1ms to count 8 million edges.**
+### 1.4 LDBC Interactive — Full Results (v4.9.3, Clean Load, All 13 Edge Types)
+
+Person: Maithripala Fernando (id=7413, 12 KNOWS friends, top-connected in SF1)
+
+| Query | Warm (ms) | Rows | Description |
+|---|---|---|---|
+| **IS1: Person profile** | **1.3** | 1 | Maithripala Fernando, male |
+| **IS3: Friend count** | **1.1** | 1 | 12 KNOWS edges |
+| **IS3: Friends LIMIT 20** | **1.8** | 12 | Full friend list |
+| **2-hop DISTINCT** | **11.0** | 1 | 1,834 distinct nodes reached |
+| **IC2: Messages by friends** | **696.6** | 10 | Real HAS_CREATOR traversal |
+| **IC5: Forums of friends** | **386.0** | 10 | Real HAS_MEMBER traversal |
+| **IC11: Friends work** | **1.7** | 10 | Real WORK_AT traversal |
+| **IC12: Friends study** | **2.9** | 9 | Real STUDY_AT traversal |
+| **Person count (9,892)** | **1.0** | 1 | — |
+| **Edge count (17.2M)** | **1.0** | 1 | All 13 relationship types |
+
+**Sub-2ms for profile, friend count, work, and study queries. 11ms for 2-hop reaching 1,834 nodes. 1.0ms to count 17.2 million edges.**
 
 ---
 
