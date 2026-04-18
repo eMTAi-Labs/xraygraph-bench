@@ -106,6 +106,19 @@ Person: Maithripala Fernando (id=7413, 12 KNOWS friends, top-connected in SF1)
 
 **Sub-2ms for profile, friend count, work, and study queries. 11ms for 2-hop reaching 1,834 nodes. 1.0ms to count 17.2 million edges.**
 
+### 1.5 In-Memory Engine vs mmap — Server 2 (187GB + Tesla T4)
+
+| Query | mmap (S1 32GB) | **in-memory (S2 187GB)** | Speedup |
+|-------|---------------|------------------------|---------|
+| **IS1: Profile** | 1.3ms | **0.5ms** | **2.6x** |
+| **IS3: Friend count** | 1.1ms | **0.6ms** | **1.8x** |
+| **IC2: Messages by friends** | 696.6ms | **125.7ms** | **5.5x** |
+| **IC5: Forums of friends** | 386.0ms | **108.6ms** | **3.6x** |
+| **IC11: Friends work** | 1.7ms | **1.9ms** | ~same |
+| **IC12: Friends study** | 2.9ms | **1.8ms** | **1.6x** |
+
+**In-memory eliminates page faults — multi-hop IC queries see 3.6-5.5x speedup over mmap.**
+
 ---
 
 ## 2. xrayProtocol Microbenchmarks (Server 1, 100K nodes)
