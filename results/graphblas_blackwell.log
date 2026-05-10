@@ -1,0 +1,37 @@
+========================================================================
+  GraphBLAS/LAGraph Benchmark (Friendster)
+  CPU-only baseline — same hardware, same dataset
+========================================================================
+
+GraphBLAS:      2025.2.0
+Algorithms:     2023.10.0
+CPU:            x86_64 (16 vCPU)
+RAM:            142 GB
+GPU:            NOT USED (CPU-only library)
+Threads:        16
+
+Dataset:        /home/Ubuntu/datasets/com-friendster.ungraph.txt (30.1 GB)
+
+========================================================================
+  Phase 1: Graph Construction
+========================================================================
+  Loading SNAP edge list → scipy sparse → GraphBLAS Matrix
+
+  Step 1: numpy CPU read...
+  Read: 74.6s (1,806,067,135 edges)
+  Step 2: scipy CSR → GraphBLAS Matrix...
+  Max vertex ID: 124,836,179 → matrix 124,836,180x124,836,180
+  scipy CSR (directed): 12.5s, nnz=1,806,067,135
+  Symmetrizing in GraphBLAS (A + A^T)...
+  GraphBLAS Matrix: 14.9s
+  ----------
+  Total load:    102.0s
+  Dimensions:    124,836,180 x 124,836,180
+  Entries:       3,612,134,270 (symmetric)
+
+========================================================================
+  Phase 2: BFS (3 sources, hop-by-hop)
+========================================================================
+  Finding high-degree sources...
+  Sources: [71768986, 54083823, 54118654] (degree: [5214, 4667, 4488])
+  Source selection: 3.1s

@@ -1,0 +1,85 @@
+name: similarity-clustering
+family: analytical
+version: "1.0.0"
+tier: B
+status: published
+query_language: cypher
+description: >
+  Measures the performance of xray.cluster_similar($threshold) — a native
+  procedure that groups similar code entities using embedding-based
+  clustering. Entities with similarity above the threshold are placed in
+  the same cluster. This is useful for detecting duplicate code, finding
+  related functions, and identifying refactoring opportunities. The
+  procedure returns cluster IDs with member lists and average intra-cluster
+  similarity scores.
+
+dataset:
+  name: synthetic-code-graph
+  type: code-graph
+  generator: code_graph
+  generator_params:
+    file_count: 5000
+    class_count: 15000
+    function_count: 100000
+    avg_calls_per_function: 4
+    avg_imports_per_file: 8
+    seed: 42
+
+query_template: >
+  CALL xray.cluster_similar($threshold)
+  YIELD cluster_id, members, avg_similarity
+  RETURN cluster_id, size(members) AS cluster_size, avg_similarity
+  ORDER BY cluster_size DESC
+  LIMIT $limit
+
+parameters:
+  threshold:
+    type: float
+    default: 0.8
+    min: 0.1
+    max: 1.0
+    description: >
+      Minimum similarity score for two entities to be placed in the
+      same cluster. Higher thresholds produce smaller, tighter clusters;
+      lower thresholds produce larger, looser clusters.
+  limit:
+    type: integer
+    default: 50
+    min: 1
+    max: 10000
+    description: >
+      Maximum number of clusters to return, ordered by cluster size
+      descending.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 1
+  expected_row_count_max: 10000
+  expected_columns: [cluster_id, cluster_size, avg_similarity]
+  description: >
+    Returns up to $limit rows. Each row represents a cluster with its
+    ID, member count, and average intra-cluster similarity. At threshold
+    0.8, expect moderately sized clusters grouping similar functions.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - rows_out
+  - segments
+
+tags:
+  - analytical
+  - clustering
+  - similarity
+  - embedding
+  - xray-procedure
+  - tier-b
+
+warm_runs: 10
+timeout_seconds: 600
+
+notes: >
+  Tier B — xrayGraphDB only. Other engines return UNSUPPORTED.
+  Similarity clustering combines vector embeddings with graph-aware
+  grouping. The engine performs pairwise similarity computation and
+  connected-component clustering natively.

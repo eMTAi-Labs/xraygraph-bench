@@ -1,0 +1,213 @@
+"""Static HTML report generator with embedded Plotly.js charts."""
+
+import json
+from pathlib import Path
+from typing import Any
+
+
+PLOTLY_CDN = "https://cdn.plot.ly/plotly-2.35.2.min.js"
+
+
+def generate_report(
+    results_dir: str | Path,
+    output_path: str | Path,
+    title: str = "xraygraph-bench Report",
+) -> int:
+    """Generate a self-contained HTML report from result JSON files.
+
+    Args:
+        results_dir: Directory containing result .json files.
+        output_path: Path to write the HTML report.
+        title: Report title.
+
+    Returns:
+        Number of results included.
+    """
+    results_dir = Path(results_dir)
+    results = []
+    for path in sorted(results_dir.glob("*.json")):
+        with open(path) as f:
+            results.append(json.load(f))
+
+    if not results:
+        _write_empty_report(output_path, title)
+        return 0
+
+    html = _build_report_html(results, title)
+    Path(output_path).write_text(html)
+    return len(results)
+
+
+def _write_empty_report(output_path: str | Path, title: str) -> None:
+    html = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>{title}</title></head>
+<body><h1>{title}</h1><p>No results found.</p></body></html>"""
+    Path(output_path).write_text(html)
+
+
+def _build_report_html(results: list[dict[str, Any]], title: str) -> str:
+    """Build the complete HTML report."""
+
+    # Group results by benchmark
+    by_benchmark: dict[str, list[dict[str, Any]]] = {}
+    for r in results:
+        bname = r.get("benchmark", "unknown")
+        by_benchmark.setdefault(bname, []).append(r)
+
+    # Build chart data sections
+    chart_sections = []
+    chart_id = 0
+
+    # 1. Cold vs Warm comparison bar chart
+    benchmarks = []
+    cold_values = []
+    warm_values = []
+    engines = []
+    for r in results:
+        label = f"{r.get('benchmark', '?')} ({r.get('engine', '?')})"
+        benchmarks.append(label)
+        cold_values.append(r.get("cold_ms", 0))
+        warm_values.append(r.get("warm_ms", 0))
+        engines.append(r.get("engine", "unknown"))
+
+    chart_sections.append(_bar_chart(
+        f"chart_{chart_id}", "Cold vs Warm Execution Time",
+        benchmarks,
+        [("Cold (ms)", cold_values), ("Warm (ms)", warm_values)],
+    ))
+    chart_id += 1
+
+    # 2. Per-benchmark comparison (if multiple results per benchmark)
+    for bname, bresults in by_benchmark.items():
+        if len(bresults) > 1:
+            labels = [r.get("engine", "?") for r in bresults]
+            cold = [r.get("cold_ms", 0) for r in bresults]
+            warm = [r.get("warm_ms", 0) for r in bresults]
+            chart_sections.append(_bar_chart(
+                f"chart_{chart_id}", f"{bname}: Engine Comparison",
+                labels,
+                [("Cold (ms)", cold), ("Warm (ms)", warm)],
+            ))
+            chart_id += 1
+
+    # 3. Results table
+    table_html = _results_table(results)
+
+    # 4. Environment summary
+    env_html = _environment_summary(results)
+
+    # Assemble HTML
+    chart_divs = "\n".join(
+        f'<div id="{s["id"]}" style="width:100%;height:400px;margin:20px 0;"></div>'
+        for s in chart_sections
+    )
+    chart_scripts = "\n".join(s["script"] for s in chart_sections)
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{title}</title>
+<script src="{PLOTLY_CDN}"></script>
+<style>
+body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: #f8f9fa; color: #212529; }}
+h1 {{ border-bottom: 2px solid #dee2e6; padding-bottom: 10px; }}
+h2 {{ color: #495057; margin-top: 30px; }}
+table {{ border-collapse: collapse; width: 100%; margin: 15px 0; background: white; }}
+th, td {{ border: 1px solid #dee2e6; padding: 8px 12px; text-align: left; }}
+th {{ background: #e9ecef; font-weight: 600; }}
+tr:nth-child(even) {{ background: #f8f9fa; }}
+.summary {{ background: white; padding: 15px; border-radius: 6px; margin: 10px 0; box-shadow: 0 1px 3px rgba(0,0,0,.1); }}
+.metric {{ font-size: 24px; font-weight: bold; color: #0d6efd; }}
+.label {{ font-size: 12px; color: #6c757d; text-transform: uppercase; }}
+.grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; }}
+footer {{ margin-top: 40px; padding-top: 15px; border-top: 1px solid #dee2e6; color: #6c757d; font-size: 12px; }}
+</style>
+</head>
+<body>
+<h1>{title}</h1>
+<div class="grid">
+<div class="summary"><div class="label">Results</div><div class="metric">{len(results)}</div></div>
+<div class="summary"><div class="label">Benchmarks</div><div class="metric">{len(by_benchmark)}</div></div>
+<div class="summary"><div class="label">Engines</div><div class="metric">{len(set(engines))}</div></div>
+</div>
+
+<h2>Charts</h2>
+{chart_divs}
+
+<h2>Results</h2>
+{table_html}
+
+<h2>Environment</h2>
+{env_html}
+
+<footer>Generated by xraygraph-bench</footer>
+
+<script>
+{chart_scripts}
+</script>
+</body>
+</html>"""
+
+
+def _bar_chart(
+    chart_id: str,
+    title: str,
+    labels: list[str],
+    series: list[tuple[str, list[float]]],
+) -> dict[str, str]:
+    """Generate a Plotly bar chart."""
+    traces = []
+    for name, values in series:
+        traces.append(
+            f"{{x: {json.dumps(labels)}, y: {json.dumps(values)}, name: '{name}', type: 'bar'}}"
+        )
+
+    script = (
+        f"Plotly.newPlot('{chart_id}', [{', '.join(traces)}], "
+        f"{{title: '{title}', barmode: 'group', margin: {{t: 40, b: 80}}}});"
+    )
+    return {"id": chart_id, "script": script}
+
+
+def _results_table(results: list[dict[str, Any]]) -> str:
+    """Generate an HTML table of results."""
+    headers = ["Benchmark", "Engine", "Cold (ms)", "Warm (ms)", "Compile (ms)", "Rows Out", "Correctness"]
+    rows = []
+    for r in results:
+        correctness = r.get("correctness", {})
+        passed = "PASS" if correctness.get("passed", False) else "FAIL"
+        rows.append([
+            r.get("benchmark", "?"),
+            r.get("engine", "?"),
+            f"{r.get('cold_ms', 0):.2f}",
+            f"{r.get('warm_ms', 0):.2f}",
+            f"{r.get('compile_ms', 'N/A')}",
+            str(r.get("rows_out", "?")),
+            passed,
+        ])
+
+    th = "".join(f"<th>{h}</th>" for h in headers)
+    tr = "".join(
+        "<tr>" + "".join(f"<td>{c}</td>" for c in row) + "</tr>" for row in rows
+    )
+    return f"<table><thead><tr>{th}</tr></thead><tbody>{tr}</tbody></table>"
+
+
+def _environment_summary(results: list[dict[str, Any]]) -> str:
+    """Generate environment info from result metadata."""
+    hosts: set[str] = set()
+    for r in results:
+        host = r.get("host", {})
+        if host:
+            hosts.add(
+                f"{host.get('os', '?')} | {host.get('cpu', '?')} | "
+                f"{host.get('cores', '?')} cores | {host.get('memory_gb', '?')} GB"
+            )
+
+    if not hosts:
+        return "<p>No environment information available.</p>"
+
+    items = "".join(f"<li>{h}</li>" for h in sorted(hosts))
+    return f"<ul>{items}</ul>"

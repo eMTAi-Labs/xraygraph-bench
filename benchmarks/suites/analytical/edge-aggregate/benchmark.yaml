@@ -1,0 +1,65 @@
+name: edge-aggregate
+family: analytical
+version: "1.0.0"
+tier: B
+status: published
+query_language: cypher
+description: >
+  Measures the performance of xray.edge_aggregate() — a native procedure
+  that scans all edges and aggregates properties grouped by relationship
+  type. This exercises the engine's columnar edge storage and type-grouped
+  aggregation pipeline. On graphs with many relationship types, this
+  reveals how efficiently the engine partitions and summarizes edge data.
+
+dataset:
+  name: synthetic-power-law
+  type: synthetic
+  generator: power_law
+  generator_params:
+    node_count: 500000
+    edge_count: 5000000
+    relationship_types: 10
+    properties:
+      weight: float
+    seed: 42
+
+query_template: >
+  CALL xray.edge_aggregate()
+  YIELD type, count, avg_weight
+  RETURN type, count, avg_weight
+  ORDER BY count DESC
+
+parameters: {}
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 1
+  expected_row_count_max: 1000
+  expected_columns: [type, count, avg_weight]
+  description: >
+    Returns one row per relationship type. With 10 configured types,
+    expect approximately 10 rows. Each row contains the type name,
+    edge count, and average weight for that type.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - rows_in
+  - rows_out
+  - segments
+
+tags:
+  - analytical
+  - columnstore
+  - edge-aggregation
+  - xray-procedure
+  - tier-b
+
+warm_runs: 20
+timeout_seconds: 300
+
+notes: >
+  Tier B — xrayGraphDB only. Other engines return UNSUPPORTED.
+  Edge aggregation tests the engine's ability to scan and group-by
+  over edge properties using columnar storage, a capability not
+  available in traditional row-oriented graph engines.

@@ -1,0 +1,109 @@
+name: physics-computation
+family: domain-science
+version: "1.0.0"
+tier: B
+status: published
+query_language: cypher
+description: >
+  Tests xrayGraphDB's built-in special relativistic physics functions:
+  physics.lorentz(velocity_mps), physics.time_dilation(velocity_mps), and
+  physics.gps_correction(altitude_m, velocity_mps). physics.lorentz computes
+  the Lorentz factor gamma = 1 / sqrt(1 - v^2/c^2), which quantifies relativistic
+  mass increase and length contraction. physics.time_dilation returns the ratio
+  of proper time to coordinate time for a moving observer, directly from the
+  Lorentz factor. physics.gps_correction computes the combined special and
+  general relativistic clock correction in nanoseconds required for GPS satellite
+  accuracy — the exact calculation used in operational GPS receiver firmware.
+  Evaluating all three in a single graph query over a particle or satellite
+  catalog demonstrates native physics function throughput. No other graph
+  database exposes relativistic physics as built-in Cypher functions.
+
+  Dataset: synthetic particle nodes representing high-velocity particles in a
+  physics simulation or detector readout graph, with velocity and altitude
+  properties spanning from thermal speeds to near-relativistic velocities.
+
+dataset:
+  name: synthetic-particle-catalog
+  type: synthetic
+  generator: uniform_nodes
+  generator_params:
+    node_count: 20000
+    node_label: Particle
+    properties:
+      id: integer
+      velocity: float
+      altitude: float
+    velocity_range:
+      - 1000.0
+      - 299792000.0
+    altitude_range:
+      - 0.0
+      - 42164000.0
+    seed: 299792458
+
+query_template: >
+  MATCH (n:Particle)
+  WITH n,
+       physics.lorentz(n.velocity) AS gamma,
+       physics.time_dilation(n.velocity) AS dilation,
+       physics.gps_correction(n.altitude, n.velocity) AS gps_ns
+  RETURN n.id,
+         n.velocity,
+         gamma,
+         dilation,
+         gps_ns
+  ORDER BY gamma DESC
+  LIMIT $limit
+
+parameters:
+  limit:
+    type: integer
+    default: 500
+    min: 1
+    max: 20000
+    description: >
+      Maximum number of particles to return, ordered by descending Lorentz
+      factor (most relativistic first). Default 500.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 1
+  expected_row_count_max: 500
+  expected_columns:
+    - "n.id"
+    - "n.velocity"
+    - gamma
+    - dilation
+    - gps_ns
+  description: >
+    Must return up to limit rows ordered by descending gamma. For v = 0,
+    gamma = 1.0 and dilation = 1.0. For v = 0.99c (~2.97e8 m/s),
+    gamma ~ 7.09. GPS satellite correction at 20200 km altitude and 3874 m/s
+    orbital velocity is approximately +38.4 microseconds per day net (expressed
+    as nanoseconds per second here). All values must be real numbers >= 1.0
+    for gamma and dilation.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - rows_out
+
+tags:
+  - domain-science
+  - physics
+  - relativity
+  - gps
+  - tier-b
+
+warm_runs: 20
+timeout_seconds: 120
+
+notes: >
+  Tier B — xrayGraphDB only. Other engines return UNSUPPORTED. physics.lorentz
+  and physics.time_dilation implement special relativistic corrections using
+  the Lorentz factor. physics.gps_correction combines the special relativistic
+  (velocity-based, negative correction ~7 us/day) and general relativistic
+  (gravitational blueshift, positive correction ~45 us/day) effects, yielding
+  the net +38.4 us/day correction applied in operational GPS systems. Essential
+  for space mission planning graphs, particle detector networks, and precision
+  timing infrastructure analysis.

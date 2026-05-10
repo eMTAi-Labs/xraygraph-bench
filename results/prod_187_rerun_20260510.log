@@ -1,0 +1,109 @@
+========================================================================
+  Production Server (.187) Full Benchmark Rerun
+========================================================================
+
+Vertices: 65608366 Edges: 3612134270 Storage: CSR (mmap)
+GPU: none or unavailable
+CPU: 128 cores
+RAM: 504 GB
+
+RETURN 1 p50: 0.49 ms
+
+========================================================================
+  Hop-by-hop from vertex 71768986
+========================================================================
+  hop  0:              1 cumulative  (frontier            1)
+  hop  1:          5,215 cumulative  (frontier        5,214)
+  hop  2:      2,151,463 cumulative  (frontier    2,146,248)
+  hop  3:     35,113,876 cumulative  (frontier   32,962,413)
+  hop  4:     61,240,094 cumulative  (frontier   26,126,218)
+  hop  5:     64,261,382 cumulative  (frontier    3,021,288)
+  hop  6:     65,154,032 cumulative  (frontier      892,650)
+  hop  7:     65,440,896 cumulative  (frontier      286,864)
+  hop  8:     65,545,042 cumulative  (frontier      104,146)
+  hop  9:     65,584,463 cumulative  (frontier       39,421)
+  hop 10:     65,599,565 cumulative  (frontier       15,102)
+  hop 11:     65,605,091 cumulative  (frontier        5,526)
+  hop 12:     65,607,152 cumulative  (frontier        2,061)
+  hop 13:     65,607,897 cumulative  (frontier          745)
+  hop 14:     65,608,166 cumulative  (frontier          269)
+  hop 15:     65,608,278 cumulative  (frontier          112)
+  hop 16:     65,608,316 cumulative  (frontier           38)
+  hop 17:     65,608,344 cumulative  (frontier           28)
+  hop 18:     65,608,363 cumulative  (frontier           19)
+  hop 19:     65,608,364 cumulative  (frontier            1)
+  hop 20:     65,608,365 cumulative  (frontier            1)
+  Total: 10.704s
+
+========================================================================
+  BFS TEPS -- 16 sources
+========================================================================
+   1/16 v=81306110: 14.4s 65,608,363 vertices (100.0%) 250.57 MTEPS
+   2/16 v=20676652: 10.6s 65,608,365 vertices (100.0%) 341.91 MTEPS
+   3/16 v=62747322: 17.6s 65,608,364 vertices (100.0%) 204.81 MTEPS
+   4/16 v=59743208: 11.9s 65,608,364 vertices (100.0%) 303.82 MTEPS
+   5/16 v=112249582: 9.2s 65,608,365 vertices (100.0%) 390.57 MTEPS
+   6/16 v=17987298: 10.0s 65,608,365 vertices (100.0%) 359.46 MTEPS
+   7/16 v=64510051: 15.9s 65,608,364 vertices (100.0%) 227.72 MTEPS
+   8/16 v=91827372: 14.7s 65,608,364 vertices (100.0%) 245.64 MTEPS
+   9/16 v=26974747: 13.2s 65,608,365 vertices (100.0%) 274.04 MTEPS
+  10/16 v=62785947: 15.5s 65,608,364 vertices (100.0%) 233.43 MTEPS
+  11/16 v=69031138: 14.6s 65,608,364 vertices (100.0%) 247.63 MTEPS
+  12/16 v=105450057: 11.5s 65,608,364 vertices (100.0%) 314.45 MTEPS
+  13/16 v=47120110: 10.3s 65,608,365 vertices (100.0%) 350.90 MTEPS
+  14/16 v=80742272: 8.7s 65,608,364 vertices (100.0%) 416.27 MTEPS
+  15/16 v=106165530: 14.3s 65,608,364 vertices (100.0%) 252.82 MTEPS
+  16/16 v=15017747: 10.5s 65,608,364 vertices (100.0%) 343.10 MTEPS
+  Median: 303.82 MTEPS  Harmonic mean: 284.86 MTEPS
+
+========================================================================
+  PageRank 20 iter
+========================================================================
+  cold  : 236.49s  result=65608366  GPU avg=?% peak=?%
+  warm1 : 230.84s  result=65608366  GPU avg=?% peak=?%
+  warm2 : 230.59s  result=65608366  GPU avg=?% peak=?%
+
+========================================================================
+  Triangle Count
+========================================================================
+  cold  : 147.89s  result=4173724142  GPU avg=?% peak=?%
+  warm1 : 142.79s  result=4173724142  GPU avg=?% peak=?%
+  warm2 : 142.13s  result=4173724142  GPU avg=?% peak=?%
+
+========================================================================
+  Connected Components
+========================================================================
+  cold  : 74.78s  result=0  GPU avg=?% peak=?%
+  warm1 : 77.03s  result=0  GPU avg=?% peak=?%
+  warm2 : 77.37s  result=0  GPU avg=?% peak=?%
+
+========================================================================
+  K-Core
+========================================================================
+  cold  : 127.90s  result=304  GPU avg=?% peak=?%
+  warm1 : 124.59s  result=304  GPU avg=?% peak=?%
+  warm2 : 125.05s  result=304  GPU avg=?% peak=?%
+
+========================================================================
+  Community 20 iter
+========================================================================
+  cold  : 214.46s  result=65608366  GPU avg=?% peak=?%
+  warm1 : 216.65s  result=65608366  GPU avg=?% peak=?%
+  warm2 : 217.60s  result=65608366  GPU avg=?% peak=?%
+
+========================================================================
+  BC Pair-Sampled (ABRA)
+========================================================================
+  cold (pool alloc)   : 27560.7ms  result=47842
+  warm1 (reuse)       : 6212.4ms  result=47899
+  warm2               : 6282.7ms  result=47820
+  warm3               : 6277.4ms  result=47849
+
+  eps=0.10 cold  : 1918.3ms  result=12146
+  eps=0.10 warm1 : 1916.9ms  result=12142
+  eps=0.10 warm2 : 1920.1ms  result=12118
+
+========================================================================
+  PRODUCTION BENCHMARK COMPLETE
+========================================================================
+Results saved to /tmp/prod_rerun_results.json

@@ -1,0 +1,13 @@
+[package]
+name = "xraybench-compare"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Result comparison engine for xraybench"
+
+[dependencies]
+xraybench-types = { path = "../xraybench-types" }
+xraybench-stats = { path = "../xraybench-stats" }
+serde = { workspace = true }
+serde_json = { workspace = true }

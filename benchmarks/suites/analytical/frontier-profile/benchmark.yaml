@@ -1,0 +1,81 @@
+name: frontier-profile
+family: analytical
+version: "1.0.0"
+tier: B
+status: published
+query_language: cypher
+description: >
+  Measures the performance of xray.frontier_profile($start_id, $max_depth)
+  — a native per-hop BFS diagnostic procedure. At each depth level it
+  reports the frontier size, edges crossed, and cumulative node count.
+  This is THE benchmark for deep traversal profiling: it reveals how the
+  graph's connectivity structure affects BFS expansion at each hop, and
+  tests the engine's ability to track traversal statistics with minimal
+  overhead.
+
+dataset:
+  name: synthetic-power-law
+  type: synthetic
+  generator: power_law
+  generator_params:
+    node_count: 1000000
+    edge_count: 10000000
+    seed: 42
+
+query_template: >
+  CALL xray.frontier_profile($start_id, $max_depth)
+  YIELD depth, frontier_size, edges_crossed, cumulative_nodes
+  RETURN *
+
+parameters:
+  start_id:
+    type: integer
+    default: 0
+    min: 0
+    max: 999999
+    description: >
+      Starting node ID for the BFS. High-degree hub nodes produce
+      larger frontiers; leaf nodes produce smaller ones.
+  max_depth:
+    type: integer
+    default: 10
+    min: 1
+    max: 20
+    description: >
+      Maximum BFS depth to profile. Each depth level adds a row to
+      the output. Deep traversals on power-law graphs can reach the
+      entire graph within 5-6 hops.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 1
+  expected_row_count_max: 20
+  expected_columns: [depth, frontier_size, edges_crossed, cumulative_nodes]
+  description: >
+    Returns one row per depth level, up to max_depth. On a connected
+    graph, the frontier eventually encompasses all reachable nodes.
+    cumulative_nodes at the final depth should approach the total
+    reachable component size.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - rows_out
+  - segments
+
+tags:
+  - analytical
+  - bfs
+  - frontier
+  - traversal-profiling
+  - xray-procedure
+  - tier-b
+
+warm_runs: 15
+timeout_seconds: 600
+
+notes: >
+  Tier B — xrayGraphDB only. Other engines return UNSUPPORTED.
+  Frontier profiling is a diagnostic capability unique to xrayGraphDB.
+  It exposes per-hop BFS statistics that other engines can only
+  approximate through repeated bounded traversals.

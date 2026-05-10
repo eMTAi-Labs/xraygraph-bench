@@ -1,0 +1,100 @@
+name: lineage-basic
+family: end-to-end
+version: "1.0.0"
+description: >
+  Models provenance and data lineage traversal on a graph of artifacts,
+  processes, and dependency relationships. Lineage queries are common in
+  data governance and compliance workloads where users need to trace data
+  from source to destination (downstream) or from a report back to its
+  inputs (upstream). This benchmark measures traversal cost, path depth
+  handling, and the impact of branching factor in lineage DAGs.
+
+dataset:
+  name: synthetic-provenance
+  type: provenance
+  generator: provenance_dag
+  generator_params:
+    artifact_count: 500000
+    process_count: 200000
+    avg_inputs_per_process: 3
+    avg_outputs_per_process: 2
+    max_pipeline_depth: 15
+    properties:
+      artifact:
+        id: integer
+        name: string
+        type: string
+        created_at: integer
+      process:
+        id: integer
+        name: string
+        engine: string
+    seed: 42
+
+query_template: >
+  MATCH path = (start:Artifact {id: $seed_id})-[:PRODUCED_BY|CONSUMED_BY*1..$max_depth]->(downstream)
+  WHERE downstream:Artifact
+  RETURN DISTINCT downstream.id, downstream.name, downstream.type, length(path) AS depth
+
+parameters:
+  seed_id:
+    type: integer
+    default: 1
+    min: 1
+    max: 500000
+    description: >
+      Starting artifact ID. Different seed positions in the DAG produce
+      different lineage shapes. Seeds near the root produce long lineages;
+      seeds near leaves produce short ones.
+  max_depth:
+    type: integer
+    default: 10
+    min: 1
+    max: 15
+    description: >
+      Maximum traversal depth. Real lineage pipelines can be 10-20 stages
+      deep. Deeper traversal tests path enumeration and deduplication.
+  direction:
+    type: string
+    default: downstream
+    enum: [downstream, upstream, both]
+    description: >
+      Traversal direction. Downstream follows data flow; upstream traces
+      provenance back to sources; both combines them for full lineage.
+  include_process_nodes:
+    type: boolean
+    default: true
+    description: >
+      Whether to return intermediate process nodes or only artifact endpoints.
+      Including processes tests heterogeneous traversal across node types.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 10
+  expected_row_count_max: 50000
+  expected_columns: [id, name, type, depth]
+  description: >
+    Lineage extent varies by seed position in the DAG. For a mid-pipeline
+    artifact in a 500K-artifact graph with avg branching factor 2-3,
+    expect between 10 and 50K downstream artifacts within depth 10.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - compile_ms
+  - rows_in
+  - rows_out
+  - segments
+  - breakers
+  - cache_hit
+
+tags:
+  - end-to-end
+  - lineage
+  - provenance
+  - dag
+  - traversal
+  - depth
+
+warm_runs: 10
+timeout_seconds: 240

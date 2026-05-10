@@ -1,0 +1,40 @@
+========================================================================
+  APPLES-TO-APPLES BENCHMARK
+  Same source vertex, same tests, same dataset
+  Source: vertex 71768986 (degree 5214)
+========================================================================
+
+========================================================================
+  xrayGraphDB (already loaded)
+========================================================================
+  Node count: 12.68ms  result=3181724
+  Edge count: 1.57ms  result=2067856
+  BFS from vertex 71768986 (degree 5214):
+    hop  0:              1 cumulative vertices
+    hop  1:          5,215 cumulative vertices
+    hop  2:      2,151,463 cumulative vertices
+    hop  3:     35,113,876 cumulative vertices
+    hop  4:     61,240,094 cumulative vertices
+    hop  5:     64,261,382 cumulative vertices
+    hop  6:     65,154,032 cumulative vertices
+    hop  7:     65,440,896 cumulative vertices
+    hop  8:     65,545,042 cumulative vertices
+    hop  9:     65,584,463 cumulative vertices
+    hop 10:     65,599,565 cumulative vertices
+    Total: 24.005s
+  2-hop neighbors: 10.95ms  result=0
+
+========================================================================
+  DuckDB 1.5.2 (already loaded)
+========================================================================
+  Node count: 1.65ms  result=65608366
+  Edge count: 12.71ms  result=1806067135
+  BFS from vertex 71768986 (degree 5214):
+    hop  1:          5,215 cumulative vertices  (1.8s)
+    hop  2: TIMEOUT (>600s)
+    STOPPING
+
+DuckDB undirected BFS: 2-hop exceeded 600s timeout.
+xrayGraphDB completed 10 hops in 24s from the same source vertex.
+
+APPLES-TO-APPLES PARTIAL COMPLETE (DuckDB timed out at 2-hop)

@@ -1,0 +1,77 @@
+name: live-aggregate
+family: analytical
+version: "1.0.0"
+tier: B
+status: published
+query_language: cypher
+description: >
+  Measures the performance of xray.live_aggregate($label, $property) — a
+  native procedure that performs immediate-freshness full vertex scan with
+  vectorized columnar aggregation. This is where xrayGraphDB's columnstore
+  execution shines: instead of row-at-a-time aggregation, the engine
+  processes property vectors in SIMD-friendly batches. Returns count, sum,
+  average, min, and max in a single pass with zero staleness.
+
+dataset:
+  name: synthetic-power-law
+  type: synthetic
+  generator: power_law
+  generator_params:
+    node_count: 1000000
+    properties:
+      id: integer
+      value: float
+      label_name: string
+    seed: 42
+
+query_template: >
+  CALL xray.live_aggregate('Node', 'value')
+  YIELD count, sum, avg, min, max
+  RETURN *
+
+parameters:
+  label:
+    type: string
+    default: "Node"
+    description: >
+      The vertex label to aggregate over. All vertices matching this
+      label are scanned.
+  property:
+    type: string
+    default: "value"
+    description: >
+      The numeric property to aggregate. The procedure computes count,
+      sum, avg, min, and max in a single vectorized pass.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 1
+  expected_row_count_max: 1
+  expected_columns: [count, sum, avg, min, max]
+  description: >
+    Returns exactly one row with five aggregate values. The count should
+    match the number of nodes with the specified label.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - rows_in
+  - rows_out
+  - segments
+
+tags:
+  - analytical
+  - columnstore
+  - aggregation
+  - vectorized
+  - xray-procedure
+  - tier-b
+
+warm_runs: 20
+timeout_seconds: 300
+
+notes: >
+  Tier B — xrayGraphDB only. Other engines return UNSUPPORTED.
+  This benchmark isolates vectorized columnar aggregation performance.
+  The live_aggregate procedure bypasses query compilation and uses
+  direct property vector access for maximum throughput.

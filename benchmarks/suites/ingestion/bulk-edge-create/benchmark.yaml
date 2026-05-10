@@ -1,0 +1,103 @@
+name: bulk-edge-create
+family: ingestion
+version: "1.0.0"
+tier: A
+status: published
+query_language: cypher
+description: >
+  Measures edge creation rate when nodes are pre-loaded and edges are inserted
+  via UNWIND + MATCH + CREATE. The MATCH lookup is the defining cost of this
+  benchmark: each edge requires the engine to resolve two endpoint nodes by id
+  before writing the relationship. This tests index utilisation during bulk edge
+  insertion — engines without a pre-existing index on the join key must perform
+  full label scans per batch, producing dramatically worse throughput. The ratio
+  of edges to nodes (default 10:1) approximates a realistic social or transaction
+  graph. Key output is ingest_edges_per_sec.
+
+citation: >
+  LDBC SNB Interactive Workload (Erling et al., 2015) uses a similar node-then-edge
+  load sequence. The MATCH-based edge creation pattern follows Neo4j's recommended
+  approach for bulk relationship ingestion described in the Neo4j Developer Guide
+  (2024). The 10:1 edge-to-node ratio is taken from the SNAP social network dataset
+  averages (Leskovec & Krevl, 2014).
+
+dataset:
+  name: synthetic-graph-edges
+  type: synthetic
+  generator: edge_list
+  generator_params:
+    node_count: 50000
+    edge_count: 500000
+    node_label: EdgeNode
+    edge_type: CONNECTS
+    node_id_property: id
+    edge_properties:
+      weight: float
+      since: integer
+    seed: 42
+
+query_template: >
+  UNWIND $batch AS row
+  MATCH (src:EdgeNode {id: row.src_id})
+  MATCH (dst:EdgeNode {id: row.dst_id})
+  CREATE (src)-[:CONNECTS {weight: row.weight, since: row.since}]->(dst)
+
+parameters:
+  node_count:
+    type: integer
+    default: 50000
+    min: 1000
+    max: 500000
+    description: >
+      Number of EdgeNode nodes pre-loaded before edge insertion begins.
+      Must be loaded and indexed before running the edge CREATE phase.
+      Larger node counts increase the MATCH index lookup cost per edge.
+  edge_count:
+    type: integer
+    default: 500000
+    min: 10000
+    max: 10000000
+    description: >
+      Total number of CONNECTS edges to create. The benchmark loads all nodes
+      first, then inserts edges in batches. Controls total write volume.
+      Default produces a 10:1 edge-to-node ratio.
+  batch_size:
+    type: integer
+    default: 500
+    min: 1
+    max: 5000
+    description: >
+      Number of edges per UNWIND batch. Smaller batches reduce memory pressure
+      but increase transaction overhead. Larger batches amortise per-transaction
+      cost but may cause lock contention on hot endpoint nodes.
+
+correctness_oracle:
+  type: row_count
+  expected_row_count: 500000
+  description: >
+    After all edge batches complete, MATCH ()-[r:CONNECTS]->() RETURN count(r)
+    must equal edge_count. Verifies that no edges were dropped due to MATCH
+    misses (missing index), transaction rollbacks, or silent failures.
+
+metrics:
+  - ingest_edges_per_sec
+  - ingest_total_ms
+  - ingest_batch_size
+  - cold_ms
+  - warm_ms
+
+tags:
+  - ingestion
+  - bulk-write
+  - edge-create
+  - index-utilisation
+  - throughput
+
+warm_runs: 3
+timeout_seconds: 1200
+notes: >
+  Nodes must be pre-loaded and an index on EdgeNode.id must exist before the
+  edge phase runs. Engines that build the index lazily (first MATCH triggers
+  index creation) will absorb extra cost on the first batch — this is expected
+  and should be noted in results. Run node pre-load as a separate setup step,
+  not included in the ingest_total_ms measurement.

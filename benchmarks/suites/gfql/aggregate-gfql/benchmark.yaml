@@ -1,0 +1,88 @@
+name: aggregate-gfql
+family: gfql
+version: "1.0.0"
+tier: B
+status: published
+query_language: gfql
+description: >
+  GFQL equivalent of the core-executor aggregate-groupby benchmark. Uses
+  GFQL chain pipeline operators (group_by, count_by, avg_by) instead of
+  Cypher GROUP BY. Tests whether GFQL's dataframe-style aggregation pipeline
+  transpiles efficiently to the same hash-aggregate or sort-aggregate physical
+  operators used by Cypher. The pipeline chain syntax (filter → group → aggregate)
+  maps naturally to GFQL's operator model.
+
+citation: >
+  Graphistry GFQL specification. GFQL aggregation pipeline semantics follow
+  pandas DataFrame.groupby() conventions applied to graph result sets.
+
+dataset:
+  name: synthetic-uniform
+  type: synthetic
+  generator: uniform_nodes
+  generator_params:
+    node_count: 1000000
+    properties:
+      id: integer
+      value: float
+      category: string
+    seed: 42
+
+query_template: >
+  chain()
+    .n({"label": "Node"})
+    .group_by("category")
+    .count_by("id")
+    .avg_by("value")
+
+gfql_template: >
+  chain()
+    .n({"label": "Node"})
+    .group_by("category")
+    .count_by("id")
+    .avg_by("value")
+
+parameters:
+  group_cardinality:
+    type: integer
+    default: 100
+    min: 10
+    max: 1000000
+    description: >
+      Number of distinct groups. Controls hash table size and aggregation cost.
+  row_count:
+    type: integer
+    default: 1000000
+    min: 1000
+    max: 10000000
+    description: >
+      Input dataset size.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 1
+  expected_row_count_max: 1000000
+  description: >
+    One output row per distinct category. With 100 categories and 1M nodes,
+    expect exactly 100 output rows.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - compile_ms
+  - rows_in
+  - rows_out
+
+tags:
+  - gfql
+  - tier-b
+  - transpilation
+  - aggregation
+  - groupby
+
+warm_runs: 20
+timeout_seconds: 120
+
+notes: >
+  Tier B benchmark — xrayGraphDB only. Compare against aggregate-groupby
+  (Cypher) to measure transpilation overhead for aggregation queries.

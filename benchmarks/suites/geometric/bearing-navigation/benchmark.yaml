@@ -1,0 +1,104 @@
+name: bearing-navigation
+family: geometric
+version: "1.0.0"
+tier: B
+status: published
+query_language: cypher
+description: >
+  Tests xrayGraphDB's built-in geo.bearing(lat1, lon1, lat2, lon2) and
+  geo.is_ahead(my_lat, my_lon, my_heading, target_lat, target_lon) functions.
+  For each geographic node in the graph, compute the bearing from that node to
+  a fixed target coordinate, then filter to only nodes where the target is ahead
+  of the given heading direction. This measures the engine's ability to evaluate
+  two vectorized trigonometric geographic functions per node in a single pass.
+  No other graph database provides native bearing computation or directional
+  heading predicates as built-in Cypher functions.
+
+  Dataset: synthetic geographic points distributed globally with lat/lon
+  properties representing sensor nodes, waypoints, or tracked assets.
+
+dataset:
+  name: synthetic-geo-points
+  type: synthetic
+  generator: uniform_nodes
+  generator_params:
+    node_count: 100000
+    node_label: GeoPoint
+    properties:
+      id: integer
+      lat: float
+      lon: float
+    seed: 42
+
+query_template: >
+  MATCH (n:GeoPoint)
+  WITH n,
+       geo.bearing(n.lat, n.lon, $target_lat, $target_lon) AS bearing,
+       geo.is_ahead(n.lat, n.lon, $heading, $target_lat, $target_lon) AS ahead
+  WHERE ahead = true
+  RETURN n.id, bearing
+  LIMIT $limit
+
+parameters:
+  target_lat:
+    type: float
+    default: 40.7128
+    min: -90.0
+    max: 90.0
+    description: >
+      Target point latitude (default: New York City).
+  target_lon:
+    type: float
+    default: -74.0060
+    min: -180.0
+    max: 180.0
+    description: >
+      Target point longitude (default: New York City).
+  heading:
+    type: float
+    default: 45.0
+    min: 0.0
+    max: 360.0
+    description: >
+      Observer heading in degrees clockwise from north. Nodes where the target
+      falls within the forward half-plane of this heading are returned.
+  limit:
+    type: integer
+    default: 1000
+    min: 1
+    max: 10000
+    description: >
+      Maximum number of matching nodes to return.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 0
+  expected_row_count_max: 1000
+  expected_columns:
+    - "n.id"
+    - bearing
+  description: >
+    Must return between 0 and limit rows. Each row must contain the node ID
+    and the computed bearing value (0–360 degrees). All returned nodes must
+    satisfy geo.is_ahead = true for the given heading.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - rows_out
+
+tags:
+  - geometric
+  - navigation
+  - bearing
+  - tier-b
+
+warm_runs: 20
+timeout_seconds: 120
+
+notes: >
+  Tier B — xrayGraphDB only. Other engines return UNSUPPORTED. geo.bearing
+  computes the initial great-circle bearing between two WGS-84 coordinates.
+  geo.is_ahead evaluates whether a target falls within the forward hemisphere
+  of a given heading, enabling directional sensor coverage and navigation queries
+  that are impossible in Neo4j, Memgraph, or Amazon Neptune without UDFs.

@@ -1,0 +1,31 @@
+========================================================================
+  Neo4j GDS Benchmark (Friendster)
+  CPU-only — same hardware, same dataset
+========================================================================
+
+Neo4j:          "Neo4j Kernel", ["2025.04.0"]
+Nodes:          65608366
+Relationships:  1806067135
+
+GDS:            NOT AVAILABLE (Unknown function 'gds.version' (line 1, column 8 (offset: 7))
+"RETURN gds.versio)
+  Note: Neo4j Community 2025.04 may not include GDS by default
+  GDS requires separate download for Community edition
+
+Running basic Cypher benchmarks (no GDS)...
+
+  Node count: 1.22s  result=65608366
+  Rel count:  1.19s  result=1806067135
+
+  BFS hops (Cypher variable-length paths):
+    1-hop: 1.4s  paths=203
+    2-hop: 1.3s  paths=7718
+    3-hop: 10.0s  paths=461029
+    4-hop: TIMEOUT (>600s)
+    STOPPING (>600s)
+
+  Note: Without GDS, only basic Cypher queries are possible.
+  GDS algorithms (PageRank, TriangleCount, Louvain, etc.) require
+  the GDS plugin which is not bundled with Neo4j Community 2025.04.
+
+NEO4J BENCHMARK COMPLETE

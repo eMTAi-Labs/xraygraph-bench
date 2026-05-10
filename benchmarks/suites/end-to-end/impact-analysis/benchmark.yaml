@@ -1,0 +1,88 @@
+name: impact-analysis
+family: end-to-end
+version: "1.0.0"
+description: >
+  Measures reverse dependency traversal performance for impact analysis
+  queries. Impact analysis answers "what breaks if X changes" by traversing
+  incoming edges (callers, importers, dependents) rather than outgoing ones.
+  This workload is critical for code intelligence, change management, and
+  risk assessment. The benchmark uses a code graph with heterogeneous
+  relationships and tests reverse traversal at varying depth.
+
+dataset:
+  name: synthetic-code-graph
+  type: code-graph
+  generator: code_graph
+  generator_params:
+    file_count: 10000
+    class_count: 25000
+    function_count: 200000
+    avg_calls_per_function: 4
+    avg_imports_per_file: 8
+    seed: 42
+
+query_template: >
+  MATCH (target:Function {id: $function_id})<-[:CALLS*1..$depth]-(caller:Function)
+  OPTIONAL MATCH (caller)-[:DEFINED_IN]->(file:File)
+  RETURN DISTINCT caller.id, caller.name, file.path, caller.complexity
+
+parameters:
+  function_id:
+    type: integer
+    default: 1000
+    min: 1
+    max: 200000
+    description: >
+      The function to analyze for impact. Utility functions with many
+      callers produce large impact sets; leaf functions produce small ones.
+  depth:
+    type: integer
+    default: 2
+    min: 1
+    max: 4
+    description: >
+      Maximum reverse traversal depth. Depth 1 gives direct callers;
+      depth 2 gives callers-of-callers. Beyond depth 3, impact sets
+      on well-connected code graphs can approach the total function count.
+  include_file_resolution:
+    type: boolean
+    default: true
+    description: >
+      Whether to resolve the file for each impacted function.
+  group_by_file:
+    type: boolean
+    default: false
+    description: >
+      When true, aggregates results by file path with count of impacted
+      functions per file. Adds GROUP BY + aggregation after traversal.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 10
+  expected_row_count_max: 50000
+  expected_columns: [id, name, path, complexity]
+  description: >
+    Impact set size depends on the target function's position in the call
+    graph. For a moderately connected function (in-degree 10-20) at depth 2,
+    expect between 10 and 50K distinct callers.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - compile_ms
+  - rows_in
+  - rows_out
+  - segments
+  - breakers
+  - cache_hit
+
+tags:
+  - end-to-end
+  - impact-analysis
+  - reverse-traversal
+  - code-graph
+  - callers
+  - change-management
+
+warm_runs: 10
+timeout_seconds: 300

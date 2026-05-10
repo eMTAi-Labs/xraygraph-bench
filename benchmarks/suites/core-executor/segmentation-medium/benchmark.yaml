@@ -1,0 +1,97 @@
+name: segmentation-medium
+family: core-executor
+version: "1.0.0"
+tier: A
+status: published
+query_language: cypher
+description: >
+  Measures execution performance of a medium-complexity pipeline with 3-4
+  segments: scan, filter, aggregation (GROUP BY with count), and sort. This
+  query introduces a materialization breaker at the WITH clause where the
+  engine must materialize intermediate results before proceeding with the
+  HAVING-style filter and ORDER BY. Tests how well the executor handles
+  pipeline breaks, hash aggregation, and top-K sorting in combination.
+
+citation: >
+  Materialization breakers correspond to "pipeline breakers" in the Volcano
+  model (Graefe, 1994) and "eager operators" in Neo4j's execution engine.
+  The WITH-based aggregation pattern is the canonical Cypher idiom for
+  grouping and filtering, analogous to SQL GROUP BY ... HAVING.
+
+dataset:
+  name: synthetic-powerlaw-1m
+  type: synthetic
+  generator: powerlaw_graph
+  generator_params:
+    node_count: 1000000
+    edge_count: 5000000
+    exponent: 2.5
+    label: N
+    edge_type: E
+    seed: 42
+
+query_template: >
+  MATCH (n:N)-[:E]->(m)
+  WHERE n.id < $max_id
+  WITH n.id AS src, count(m) AS deg
+  WHERE deg > $min_degree
+  RETURN src, deg
+  ORDER BY deg DESC
+  LIMIT $limit
+
+parameters:
+  max_id:
+    type: integer
+    default: 10000
+    min: 100
+    max: 1000000
+    description: >
+      Upper bound on source node id. Controls how many starting nodes enter
+      the expand phase. Lower values reduce the scan window; higher values
+      stress aggregation capacity.
+  min_degree:
+    type: integer
+    default: 3
+    min: 1
+    max: 1000
+    description: >
+      Minimum out-degree filter applied after aggregation. Acts as a HAVING
+      clause, filtering low-connectivity nodes from the result. Higher values
+      yield fewer output rows.
+  limit:
+    type: integer
+    default: 100
+    min: 1
+    max: 10000
+    description: >
+      Maximum number of result rows after sorting. Controls the top-K
+      selection that follows the ORDER BY.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 1
+  expected_row_count_max: 100
+  expected_columns: [src, deg]
+  description: >
+    With max_id=10000, min_degree=3, and limit=100 on a power-law graph,
+    the result should contain between 1 and 100 rows of high-degree nodes.
+    Exact count depends on the degree distribution of the synthetic graph.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - compile_ms
+  - segments
+  - breakers
+  - rows_out
+
+tags:
+  - core
+  - segmentation
+  - medium
+  - aggregation
+  - sort
+  - pipeline-breaker
+
+warm_runs: 10
+timeout_seconds: 120

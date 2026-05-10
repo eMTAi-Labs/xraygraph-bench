@@ -1,0 +1,92 @@
+name: nearest-neighbor-geo
+family: geometric
+version: "1.0.0"
+tier: A
+status: published
+query_language: cypher
+description: >
+  K-nearest geographic neighbor search using great circle distance. Given a
+  query point (lat, lon), find the K closest nodes in the graph. This tests
+  the engine's ability to compute HAVERSINE_DISTANCE across all nodes and
+  return the top-K sorted by distance. On a dataset of 100K+ geographic points,
+  the naive approach (full scan + sort) is O(N log K). Engines with spatial
+  indexes can do better. The benchmark exposes whether the engine uses a
+  spatial index or falls back to brute-force scan.
+
+  Dataset: geographic points (airports, cities, or OSM nodes) with lat/lon
+  properties. Each node has real-world coordinates.
+
+citation: >
+  Nearest neighbor search on the sphere. Haversine formula benchmark from
+  geographic information systems literature. Spatial index evaluation from
+  R-tree and geohash benchmarking studies.
+
+dataset:
+  name: synthetic-geo-points
+  type: synthetic
+  generator: uniform_nodes
+  generator_params:
+    node_count: 100000
+    properties:
+      id: integer
+      lat: float
+      lon: float
+    seed: 42
+
+query_template: >
+  MATCH (n:GeoPoint)
+  WITH n, HAVERSINE_DISTANCE($query_lat, $query_lon, n.lat, n.lon) AS dist_m
+  RETURN n.id, n.lat, n.lon, dist_m
+  ORDER BY dist_m ASC
+  LIMIT $k
+
+parameters:
+  query_lat:
+    type: float
+    default: 40.7128
+    min: -90.0
+    max: 90.0
+    description: >
+      Query point latitude (default: New York City).
+  query_lon:
+    type: float
+    default: -74.0060
+    min: -180.0
+    max: 180.0
+    description: >
+      Query point longitude.
+  k:
+    type: integer
+    default: 10
+    min: 1
+    max: 1000
+    description: >
+      Number of nearest neighbors to return.
+
+correctness_oracle:
+  type: row_count
+  expected_row_count: 10
+  description: >
+    Must return exactly K rows sorted by ascending distance. The closest
+    point must have the smallest distance value.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - rows_out
+
+tags:
+  - geometric
+  - tier-a
+  - nearest-neighbor
+  - haversine
+  - spatial
+
+warm_runs: 20
+timeout_seconds: 120
+
+notes: >
+  Tier A — all engines with HAVERSINE_DISTANCE or equivalent can participate.
+  Neo4j has point.distance(), Memgraph has limited spatial support. The query
+  uses engine-neutral HAVERSINE_DISTANCE function; adapters may translate to
+  engine-specific equivalents.

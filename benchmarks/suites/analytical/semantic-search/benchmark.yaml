@@ -1,0 +1,81 @@
+name: semantic-search
+family: analytical
+version: "1.0.0"
+tier: B
+status: published
+query_language: cypher
+description: >
+  Measures the performance of xray.semantic_search($query_text, $top_k) —
+  a native procedure that performs embedding-based similarity search over
+  graph nodes. The engine vectorizes the query text, searches an internal
+  vector index, and returns the top-K matching nodes with similarity scores
+  and text snippets. This fuses vector search with graph context in a
+  single native call, avoiding the round-trip overhead of external vector
+  databases.
+
+dataset:
+  name: synthetic-code-graph
+  type: code-graph
+  generator: code_graph
+  generator_params:
+    file_count: 5000
+    class_count: 15000
+    function_count: 100000
+    avg_calls_per_function: 4
+    avg_imports_per_file: 8
+    seed: 42
+
+query_template: >
+  CALL xray.semantic_search($query_text, $top_k)
+  YIELD node, score, snippet
+  RETURN node, score, snippet
+
+parameters:
+  query_text:
+    type: string
+    default: "error handling"
+    description: >
+      The natural language query to search for. The engine converts
+      this to an embedding vector and performs approximate nearest
+      neighbor search.
+  top_k:
+    type: integer
+    default: 20
+    min: 1
+    max: 1000
+    description: >
+      Number of top results to return, ranked by similarity score.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 1
+  expected_row_count_max: 1000
+  expected_columns: [node, score, snippet]
+  description: >
+    Returns up to $top_k rows. Each row contains a graph node reference,
+    a similarity score in [0, 1], and a text snippet showing the matching
+    content. Results are ordered by score descending.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - rows_out
+  - segments
+
+tags:
+  - analytical
+  - semantic-search
+  - vector
+  - embedding
+  - xray-procedure
+  - tier-b
+
+warm_runs: 20
+timeout_seconds: 300
+
+notes: >
+  Tier B — xrayGraphDB only. Other engines return UNSUPPORTED.
+  Semantic search integrates vector similarity into the graph engine,
+  eliminating the need for external vector database round-trips.
+  The procedure handles embedding generation, ANN search, and
+  result enrichment in a single call.

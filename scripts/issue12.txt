@@ -1,0 +1,104 @@
+
+### Start Issue #12 ###
+TITLE: COMPREHENSIVE PRE-BENCH CHECKLIST — Fix ALL of these before we run again
+SEVERITY: CRITICAL
+SERVER: 216.106.185.187
+
+We are NOT running the full benchmark suite again until every item below is resolved.
+Running a 3+ hour bench that produces unusable results wastes everyones time.
+
+====================================================================
+BLOCKER 1: CSR build must complete successfully
+====================================================================
+STATUS: Build currently in progress (PID 2868182, pass 3b sort, ~2.5h CPU)
+ACTION: Let it finish. Verify manifest.bin appears in /neo4j/csr_default/
+VERIFY: db_health_report shows vertex_count=65,608,366, edge_count=3,612,134,270
+VERIFY: frontier_profile(13594, 1, OUTGOING) returns frontier_size > 0
+VERIFY: connected_components returns num_components=1
+
+====================================================================
+BLOCKER 2: Betweenness Centrality 20x regression (Issue #8 — STILL OPEN)
+====================================================================
+STATUS: Never addressed in bench-resolve.txt. Zero mentions.
+DATA:
+  Apr 24 binary: betweenness_centrality("", 100) = 19,240ms
+  Apr 27 binary: betweenness_centrality("", 100) = 381,404ms
+  Same server, same CSR, same query. 20x slower.
+  Server-side time_ms confirms: 19,365 vs 325,343
+ACTION: Diff betweenness code between Apr 24 and current binary.
+  Something in the parallel BFS used by betweenness was reverted or broken.
+VERIFY: betweenness_centrality("", 100) completes in <30s on Friendster
+
+====================================================================
+BLOCKER 3: Transaction timeout kills long-running analytics
+====================================================================
+STATUS: Community Detection 3iter and HITS 3iter both fail with
+  "Transaction was asked to abort because of transaction timeout"
+AFFECTED PROCEDURES: community_detection, hits, possibly others
+ACTION: Either:
+  A) Set --query-execution-timeout-sec=0 in the systemd unit, OR
+  B) Exempt xray.* analytics procedures from the transaction timeout
+  (they are read-only graph analytics, not rogue queries)
+VERIFY: community_detection(3, "") completes without timeout
+VERIFY: hits(3, "") completes without timeout and returns >0 rows
+
+====================================================================
+BLOCKER 4: HITS returns 0 rows
+====================================================================
+STATUS: In the Apr 27 v2 bench run, HITS 3iter returned 0ms/0 rows (PASS but empty).
+  On .171, HITS 3iter returned real data (133s, multiple rows).
+  0 rows in 0ms means the procedure short-circuited without doing work.
+ACTION: Verify HITS actually computes on Friendster CSR, not just returns empty.
+VERIFY: hits(3, "") returns >0 rows with real hub/authority scores
+
+====================================================================
+ISSUE 5: TopK Reachable — score_property not supported on CSR
+====================================================================
+STATUS: "topk_reachable: score_property not supported on CSR (large graph) path.
+  CSR stores topology only, not vertex properties."
+  The error message suggests using degree scoring instead.
+ACTION: Either:
+  A) Support degree-based scoring on CSR path (the error says "omit score_property
+     to score by deg" but the procedure requires it), OR
+  B) Tell us the correct call signature for CSR-only scoring
+VERIFY: topk_reachable(13594, 10, 3, "degree", "OUTGOING") works, OR
+  provide the working call signature
+
+====================================================================
+ISSUE 6: Similarity procedure — never completed on Friendster
+====================================================================
+STATUS: On .171, similarity(13594, "jaccard", 10, "") ran >10 minutes
+  and was never completed. Not tested on .187.
+ACTION: Either optimize for high-degree vertices or add a progress limit
+VERIFY: similarity() completes in reasonable time (<60s) on Friendster
+
+====================================================================
+ISSUE 7: Clustering Coefficient — blocked, never tested on .187
+====================================================================
+STATUS: Was blocked by Similarity timeout on .171. Never tested on .187.
+ACTION: Just needs verification that it works.
+VERIFY: clustering_coefficient("") returns results on Friendster
+
+====================================================================
+SUMMARY — What we need before running the bench:
+====================================================================
+
+MUST FIX (blockers — bench is useless without these):
+  [ ] CSR build completes with correct undirected data
+  [ ] Betweenness regression fixed (back to ~19s, not 381s)
+  [ ] Transaction timeout removed/raised for analytics procedures
+  [ ] HITS returns actual data (not 0 rows)
+
+SHOULD FIX (incomplete coverage without these):
+  [ ] TopK Reachable working call signature for CSR
+  [ ] Similarity completes in <60s
+  [ ] Clustering Coefficient verified working
+
+When ALL blockers are checked off, write to /tmp/bench-resolve.txt:
+  "### Issue #12 Resolved — all blockers fixed, ready for full bench"
+
+Include the binary md5 and any startup flag changes (e.g. timeout setting).
+We will verify each item individually before running the full suite.
+
+TIMESTAMP: 2026-04-27T19:50:00Z
+### End Issue #12 ###

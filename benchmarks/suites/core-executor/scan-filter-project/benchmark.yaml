@@ -1,0 +1,99 @@
+name: scan-filter-project
+family: core-executor
+version: "1.0.0"
+description: >
+  Measures scan, filter, and projection performance on a flat node dataset.
+  Isolates executor overhead by avoiding graph traversal. Exposes selectivity
+  effects and the cost difference between covered and non-covered access paths.
+  At low selectivity (0.001), the filter dominates; at high selectivity (1.0),
+  materialization and projection dominate.
+
+dataset:
+  name: synthetic-uniform
+  type: synthetic
+  generator: uniform_nodes
+  generator_params:
+    node_count: 1000000
+    properties:
+      id: integer
+      value: float
+      category: string
+      nullable_field: float
+    nullable_ratio: 0.05
+    seed: 42
+
+query_template: >
+  MATCH (n:Node)
+  WHERE n.value > $threshold
+  RETURN n.id, n.value
+
+parameters:
+  row_count:
+    type: integer
+    default: 1000000
+    min: 10000
+    max: 100000000
+    description: Number of nodes in the dataset.
+  selectivity:
+    type: float
+    default: 0.1
+    min: 0.001
+    max: 1.0
+    description: >
+      Fraction of rows passing the filter predicate. The threshold parameter
+      is computed as (1.0 - selectivity) to achieve the target selectivity
+      on uniformly distributed values in [0, 1).
+  nullable_ratio:
+    type: float
+    default: 0.05
+    min: 0.0
+    max: 0.5
+    description: >
+      Fraction of nullable_field values set to null. Tests engine handling
+      of null values in scans and filters.
+  projection_width:
+    type: integer
+    default: 2
+    min: 1
+    max: 10
+    description: >
+      Number of columns in the RETURN clause. Higher widths stress property
+      access and result materialization.
+  access_path:
+    type: string
+    default: non-covered
+    enum: [covered, non-covered]
+    description: >
+      Whether the query can be satisfied from an index alone (covered)
+      or requires property store access (non-covered). Covered access tests
+      index-only scan performance.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 99000
+  expected_row_count_max: 101000
+  expected_columns: [id, value]
+  description: >
+    For 1M rows with uniform values in [0, 1) and selectivity 0.1 (threshold
+    0.9), expect approximately 100K rows. Tolerance of +/- 1% accounts for
+    uniform random distribution variance at this scale.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - compile_ms
+  - rows_in
+  - rows_out
+  - segments
+  - breakers
+  - cache_hit
+
+tags:
+  - core
+  - scan
+  - filter
+  - projection
+  - selectivity
+
+warm_runs: 10
+timeout_seconds: 120

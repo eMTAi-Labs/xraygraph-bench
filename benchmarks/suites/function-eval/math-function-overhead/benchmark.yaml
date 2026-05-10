@@ -1,0 +1,70 @@
+name: math-function-overhead
+family: function-eval
+version: "1.0.0"
+tier: B
+status: published
+query_language: cypher
+description: >
+  Measures the per-row overhead of math function evaluation in the query
+  engine. Compares baseline property access (RETURN n.value) against a
+  pipeline of math functions (sqrt, abs, addition). The difference isolates
+  the cost of function dispatch, type checking, and computation. This
+  benchmark reveals whether the engine uses vectorized function evaluation
+  or row-at-a-time dispatch.
+
+dataset:
+  name: synthetic-power-law
+  type: synthetic
+  generator: power_law
+  generator_params:
+    node_count: 1000000
+    properties:
+      value: float
+    seed: 42
+
+query_template: >
+  MATCH (n:N)
+  RETURN sqrt(abs(n.value) + 1.0) AS computed
+  LIMIT $limit
+
+parameters:
+  limit:
+    type: integer
+    default: 10000
+    min: 100
+    max: 1000000
+    description: >
+      Number of rows to evaluate. Higher limits amortize per-query
+      overhead and isolate per-row function cost.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 1
+  expected_row_count_max: 1000000
+  expected_columns: [computed]
+  description: >
+    Returns up to $limit rows. Each row contains the computed result
+    of sqrt(abs(n.value) + 1.0). All values should be positive reals.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - compile_ms
+  - rows_in
+  - rows_out
+
+tags:
+  - function-eval
+  - math
+  - overhead
+  - vectorized
+  - tier-b
+
+warm_runs: 20
+timeout_seconds: 300
+
+notes: >
+  Tier B — xrayGraphDB only. Other engines return UNSUPPORTED.
+  Math function evaluation overhead reveals whether the engine uses
+  vectorized SIMD execution for built-in functions or falls back to
+  scalar row-at-a-time dispatch.

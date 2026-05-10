@@ -1,0 +1,98 @@
+name: mode-legality
+family: emergent-edge
+version: "1.0.0"
+tier: B
+status: published
+query_language: cypher
+description: >
+  Validates query mode legality enforcement across the emergent edge system.
+  The same logical query is executed at each of the five query modes (strict,
+  explain, ranked, ai_context, approximate). For each mode, the benchmark
+  measures: (1) whether the engine serves cached results from mode-appropriate
+  edge kinds only, (2) relative latency across modes — strict should be
+  slowest (fewest shortcut types available), approximate fastest (most types
+  available), (3) correctness at each mode level.
+
+  This benchmark also measures the mode lattice property: validation at a
+  more restrictive mode implies validity at all less restrictive modes. An
+  edge validated at strict should be servable at all modes. An edge validated
+  only at approximate must never be served at strict.
+
+citation: >
+  xrayGraphDB Emergent Edge Lifecycle patent — Query Mode Legality matrix.
+  Five query modes with per-mode edge kind legality (Section 6 of the spec).
+
+dataset:
+  name: synthetic-deep-traversal
+  type: synthetic
+  generator: deep_traversal
+  generator_params:
+    num_roots: 3
+    fanout_per_level: [4, 4, 3, 3, 2, 2, 2, 2, 2, 2]
+    seed: 42
+
+query_template: >
+  MATCH (start:DT {id: $seed_id})-[:E*$hop_depth]->(target)
+  RETURN count(target) AS reachable_count
+
+parameters:
+  seed_id:
+    type: integer
+    default: 0
+    min: 0
+    max: 2
+    description: >
+      Root node for traversal.
+  hop_depth:
+    type: integer
+    default: 5
+    min: 3
+    max: 8
+    description: >
+      Traversal depth. Deep enough to produce multiple edge kinds.
+  iterations_per_mode:
+    type: integer
+    default: 200
+    min: 50
+    max: 1000
+    description: >
+      Number of iterations at each query mode. Must exceed cold_start_min
+      (default 50) to allow emergent edge synthesis at each mode.
+
+correctness_oracle:
+  type: invariant
+  description: >
+    Strict mode must return bit-for-bit identical results every time.
+    Explain mode must return the same evidence chains. Ranked mode must
+    return the same top-k in the same order. Results across modes may
+    differ in format/detail but must agree on the core traversal count.
+    A strict-mode execution must NEVER return data from an approximate
+    or ai_context edge.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - compile_ms
+  - rows_out
+  - cache_hit
+  - fallback
+
+tags:
+  - emergent-edge
+  - tier-b
+  - mode-legality
+  - correctness
+  - query-modes
+
+warm_runs: 200
+timeout_seconds: 600
+
+notes: >
+  Tier B benchmark — xrayGraphDB only. Requires query mode support in both
+  the protocol (Bolt metadata or xrayProtocol frame header) and the engine.
+  The runner should execute the benchmark at each mode sequentially, collecting
+  separate time-series per mode. Key output: (1) mode_latency_map — median
+  latency per mode after warmup, (2) mode_speedup — ratio of strict latency
+  to each other mode's latency, (3) mode_violation_count — number of times
+  a more restrictive mode received a less restrictive edge (must be 0),
+  (4) lattice_valid — boolean, does validation at strict imply validity at all.

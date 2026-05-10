@@ -1,0 +1,66 @@
+name: full-health-report
+family: code-intelligence
+version: "1.0.0"
+tier: B
+status: published
+query_language: cypher
+description: >
+  Measures the performance of xray.health_report() — the most expensive
+  code intelligence operation, which internally runs xray.full_analysis()
+  to compute complexity, dead code, coupling, and then aggregates the
+  results into a single health report. This is a worst-case benchmark for
+  code intelligence throughput: it exercises every xray.* code analysis
+  procedure in sequence and produces a summary grade.
+
+dataset:
+  name: synthetic-code-graph
+  type: code-graph
+  generator: code_graph
+  generator_params:
+    file_count: 5000
+    class_count: 15000
+    function_count: 100000
+    avg_calls_per_function: 4
+    avg_imports_per_file: 8
+    seed: 42
+
+query_template: >
+  CALL xray.health_report()
+  YIELD grade, total_functions, avg_complexity, dead_code_count, coupling_score
+  RETURN *
+
+parameters: {}
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 1
+  expected_row_count_max: 1
+  expected_columns: [grade, total_functions, avg_complexity, dead_code_count, coupling_score]
+  description: >
+    Returns exactly one row containing the aggregate health report.
+    The grade is a letter (A-F), total_functions should match the
+    dataset function count, and the other fields are computed aggregates.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - rows_out
+  - segments
+
+tags:
+  - code-intelligence
+  - health-report
+  - full-analysis
+  - xray-procedure
+  - worst-case
+  - tier-b
+
+warm_runs: 10
+timeout_seconds: 600
+
+notes: >
+  Tier B — xrayGraphDB only. Other engines return UNSUPPORTED.
+  This is the heaviest code intelligence benchmark. It chains
+  xray.full_analysis() and xray.health_report() internally, exercising
+  complexity analysis, dead code detection, and coupling computation
+  in a single pipeline.

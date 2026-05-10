@@ -1,0 +1,79 @@
+name: neighborhood-stats
+family: analytical
+version: "1.0.0"
+tier: B
+status: published
+query_language: cypher
+description: >
+  Measures the performance of xray.neighborhood_stats($start_id, $property,
+  $max_depth) — a native procedure that aggregates a numeric property
+  across each BFS frontier level. At each depth, it computes count, avg,
+  min, and max of the specified property for all nodes at that distance.
+  Combines traversal with per-depth columnar aggregation in a single
+  engine-native operation.
+
+dataset:
+  name: synthetic-power-law
+  type: synthetic
+  generator: power_law
+  generator_params:
+    node_count: 1000000
+    edge_count: 10000000
+    properties:
+      value: float
+    seed: 42
+
+query_template: >
+  CALL xray.neighborhood_stats($start_id, 'value', $max_depth)
+  YIELD depth, count, avg, min, max
+  RETURN *
+
+parameters:
+  start_id:
+    type: integer
+    default: 0
+    min: 0
+    max: 999999
+    description: >
+      Starting node ID for the neighborhood scan.
+  max_depth:
+    type: integer
+    default: 5
+    min: 1
+    max: 10
+    description: >
+      Maximum depth for neighborhood property aggregation. Each depth
+      produces one summary row.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 1
+  expected_row_count_max: 10
+  expected_columns: [depth, count, avg, min, max]
+  description: >
+    Returns one row per depth level up to max_depth. The count at each
+    depth reflects the frontier size; avg/min/max summarize the property
+    distribution at that distance from the start node.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - rows_out
+  - segments
+
+tags:
+  - analytical
+  - neighborhood
+  - property-aggregation
+  - bfs
+  - xray-procedure
+  - tier-b
+
+warm_runs: 15
+timeout_seconds: 300
+
+notes: >
+  Tier B — xrayGraphDB only. Other engines return UNSUPPORTED.
+  Neighborhood stats combines BFS traversal with columnar property
+  aggregation at each hop level — two operations fused into a single
+  native call.

@@ -1,0 +1,77 @@
+name: list-function-overhead
+family: function-eval
+version: "1.0.0"
+tier: B
+status: published
+query_language: cypher
+description: >
+  Measures the overhead of list functions in query evaluation. Tests
+  collect(), size(), and list.sort() applied to neighbor ID lists. List
+  operations are the most expensive built-in function category because
+  they require dynamic memory allocation and sorting. This benchmark
+  reveals the engine's list materialization and sorting efficiency on
+  variable-length neighbor lists.
+
+dataset:
+  name: synthetic-power-law
+  type: synthetic
+  generator: power_law
+  generator_params:
+    node_count: 500000
+    edge_count: 5000000
+    properties:
+      id: integer
+    seed: 42
+
+query_template: >
+  MATCH (n:N)-[:E]->(m)
+  WITH n, collect(m.id) AS neighbors
+  RETURN n.id, size(neighbors), list.sort(neighbors)
+  LIMIT $limit
+
+parameters:
+  limit:
+    type: integer
+    default: 1000
+    min: 10
+    max: 100000
+    description: >
+      Number of source nodes to evaluate. Each source node produces
+      one row with its collected and sorted neighbor list. Higher
+      limits stress list allocation throughput.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 1
+  expected_row_count_max: 100000
+  expected_columns: ["n.id", "size(neighbors)", "list.sort(neighbors)"]
+  description: >
+    Returns up to $limit rows. Each row contains a node ID, the count
+    of its outgoing neighbors, and the sorted list of neighbor IDs.
+    On a power-law graph, list sizes vary widely — hub nodes produce
+    large lists, leaf nodes produce small ones.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - compile_ms
+  - rows_in
+  - rows_out
+
+tags:
+  - function-eval
+  - list
+  - collect
+  - sort
+  - overhead
+  - tier-b
+
+warm_runs: 15
+timeout_seconds: 300
+
+notes: >
+  Tier B — xrayGraphDB only. Other engines return UNSUPPORTED.
+  List function overhead is dominated by memory allocation for collect()
+  and comparison cost for list.sort(). Power-law degree distributions
+  create highly skewed list sizes, testing both small and large list
+  performance.

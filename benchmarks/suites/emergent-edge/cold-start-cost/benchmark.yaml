@@ -1,0 +1,96 @@
+name: cold-start-cost
+family: emergent-edge
+version: "1.0.0"
+tier: B
+status: published
+query_language: cypher
+description: >
+  Quantifies the cold-start behavior of the emergent edge system's three
+  cache tiers. The key insight: Tier 2 (session cache) activates after a
+  SINGLE execution via the fast path (exact signature memoization), while
+  Tier 3 (materialized persistent) requires 100+ reuse observations for
+  promotion. This benchmark measures the three-phase cold start:
+  (1) first execution — full base cost, observation captured,
+  (2) second execution onward — Tier 2 session cache may hit (fast path),
+  (3) after promotion_reuse_min executions — Tier 3 materialized shortcut.
+
+  The benchmark captures: (a) time-to-first-cache-hit — should be iteration 2
+  if Tier 2 activates immediately, (b) Tier 2 vs Tier 3 latency difference —
+  Tier 2 is memoization, Tier 3 is structural shortcut with richer optimization,
+  (c) break-even point — cumulative time-saved vs overhead, (d) amortization
+  rate for infrequent queries (if the query only runs 10 times, does Tier 2
+  alone provide net benefit?).
+
+citation: >
+  xrayGraphDB Emergent Edge Lifecycle patent. Cold start analysis methodology
+  inspired by online learning regret bounds — total regret vs. oracle cost.
+
+dataset:
+  name: synthetic-deep-traversal
+  type: synthetic
+  generator: deep_traversal
+  generator_params:
+    num_roots: 3
+    fanout_per_level: [4, 4, 3, 3, 2, 2, 2, 2, 2, 2]
+    seed: 42
+
+query_template: >
+  MATCH (start:DT {id: $seed_id})-[:E*$hop_depth]->(target)
+  RETURN count(target) AS reachable_count
+
+parameters:
+  seed_id:
+    type: integer
+    default: 0
+    min: 0
+    max: 2
+    description: >
+      Root node for traversal.
+  hop_depth:
+    type: integer
+    default: 5
+    min: 3
+    max: 10
+    description: >
+      Traversal depth. Higher = more expensive base cost = bigger potential
+      speedup = longer absolute cold-start cost.
+  total_iterations:
+    type: integer
+    default: 1000
+    min: 200
+    max: 10000
+    description: >
+      Total iterations to run. Must be large enough to observe the full
+      cold-start period plus sufficient steady-state for amortization.
+
+correctness_oracle:
+  type: invariant
+  description: >
+    All iterations must return the same count. Consistency across the
+    cold-start boundary (before and after optimization) is critical.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - rows_out
+
+tags:
+  - emergent-edge
+  - tier-b
+  - cold-start
+  - amortization
+  - break-even
+
+warm_runs: 1000
+timeout_seconds: 1200
+
+notes: >
+  Tier B benchmark — xrayGraphDB only. The runner should capture per-iteration
+  latency and compute: (1) cold_start_iterations — iterations before first
+  cache hit, (2) cold_start_total_ms — cumulative cost of cold-start period,
+  (3) break_even_iteration — iteration where cumulative savings exceed
+  cumulative cold-start cost, (4) amortization_factor — total_cost_with_ee /
+  total_cost_without_ee over all iterations (< 1.0 = net benefit).
+
+  Run once with emergent edge enabled, once disabled. The difference in
+  cumulative latency is the net value of the optimization system.

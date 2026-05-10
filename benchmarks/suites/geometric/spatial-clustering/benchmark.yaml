@@ -1,0 +1,96 @@
+name: spatial-clustering
+family: geometric
+version: "1.0.0"
+tier: B
+status: published
+query_language: cypher
+description: >
+  Geographic clustering — group nodes by spatial proximity into clusters.
+  Uses graph connectivity + geographic distance to identify spatially coherent
+  communities. Nodes that are both graph-connected AND geographically close
+  form stronger clusters than nodes that are only one or the other.
+
+  This benchmark tests the engine's ability to combine spatial computation
+  (haversine distance) with graph algorithms (community detection / connected
+  components). It's a two-stage pipeline: (1) filter edges by geographic
+  distance threshold, (2) find connected components in the filtered subgraph.
+
+  On the xrayGraphDB path, this can use xray.cluster_similar() or
+  xray.temporal_clustering() with spatial features. Other engines must
+  implement the full pipeline in Cypher.
+
+citation: >
+  Spatial community detection from geographic network analysis. DBSCAN
+  on graph-embedded spatial data from geospatial clustering literature.
+
+dataset:
+  name: synthetic-geo-graph
+  type: synthetic
+  generator: power_law
+  generator_params:
+    node_count: 50000
+    m: 5
+    seed: 42
+
+query_template: >
+  MATCH (a:GeoPoint)-[:CONNECTED]->(b:GeoPoint)
+  WHERE HAVERSINE_DISTANCE(a.lat, a.lon, b.lat, b.lon) <= $cluster_radius_m
+  WITH a, collect(DISTINCT b) AS nearby
+  WHERE size(nearby) >= $min_cluster_size
+  RETURN a.id AS center, size(nearby) AS cluster_size,
+    a.lat AS center_lat, a.lon AS center_lon
+  ORDER BY cluster_size DESC
+  LIMIT $limit
+
+parameters:
+  cluster_radius_m:
+    type: float
+    default: 100000.0
+    min: 1000.0
+    max: 5000000.0
+    description: >
+      Maximum distance between connected nodes to be in the same spatial
+      cluster. 100000 = 100km.
+  min_cluster_size:
+    type: integer
+    default: 3
+    min: 2
+    max: 100
+    description: >
+      Minimum number of nearby connected nodes to qualify as a cluster center.
+  limit:
+    type: integer
+    default: 100
+    min: 10
+    max: 10000
+    description: >
+      Maximum clusters to return.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 0
+  expected_row_count_max: 50000
+  description: >
+    Cluster count depends on data distribution and radius. At 100km radius
+    with random global points, expect moderate clustering.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - rows_out
+
+tags:
+  - geometric
+  - tier-b
+  - spatial-clustering
+  - community-detection
+  - haversine
+
+warm_runs: 10
+timeout_seconds: 300
+
+notes: >
+  Mixed tier — the Cypher query is portable (Tier A), but xrayGraphDB can
+  also use xray.cluster_similar() or xray.temporal_clustering() for native
+  optimized clustering (Tier B). Compare both paths to measure the native
+  advantage. Other engines run only the Cypher path.

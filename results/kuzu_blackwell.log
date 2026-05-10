@@ -1,0 +1,22 @@
+========================================================================
+  Kuzu 0.11.3 Benchmark (Friendster)
+  Same source vertex: 71768986 (degree 5214)
+========================================================================
+
+Phase 1: Kuzu COPY from CSVs...
+  Nodes COPY: 7.4s
+  Edges COPY: 210.1s
+  Loaded: 65,608,366 nodes, 1,806,067,135 edges
+  Total: 217.6s
+
+Phase 2: Basic queries
+  Node count: 5.0ms  result=65608366
+  Edge count: 371.3ms  result=1806067135
+
+Phase 3: BFS from vertex 71768986 (degree 5214)
+  hop  1:          5,214 cumulative vertices  (0.2s)
+  hop  2:      2,151,463 cumulative vertices  (0.9s)
+  hop  3: TIMEOUT (>600s)
+  STOPPING
+
+KUZU BENCHMARK COMPLETE

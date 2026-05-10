@@ -1,0 +1,95 @@
+name: index-build-time
+family: ingestion
+version: "1.0.0"
+tier: A
+status: published
+query_language: cypher
+description: >
+  Measures the time required to create a label+property index after bulk data
+  load. This benchmark exposes a fundamental architectural difference between
+  graph engines: some maintain indexes incrementally during ingestion (making
+  post-load index creation nearly instantaneous), while others must perform a
+  full sequential scan of all nodes to build the index structure from scratch
+  (making index creation O(N) in dataset size). A 500K-node dataset is loaded
+  without any index, and then CREATE INDEX is executed. The index_build_ms
+  metric captures only the index creation step, not the prior data load.
+  This is production-relevant because many pipelines load data first and index
+  second to maximise write throughput.
+
+citation: >
+  Index build cost characterisation methodology follows the approach in
+  "Index Structures for Graph Databases" (Buerli & Schuler, 2013). The
+  post-load index creation pattern is standard practice documented in the
+  Neo4j Operations Manual (2024) and Amazon Neptune data loading guides (2023).
+  The 500K node scale is chosen to make the O(N) scan cost clearly measurable
+  (>1 second) on slower engines while not being excessively long on fast ones.
+
+dataset:
+  name: synthetic-nodes-500k
+  type: synthetic
+  generator: flat_nodes
+  generator_params:
+    node_count: 500000
+    label: IndexNode
+    properties:
+      id: integer
+      name: string
+      value: float
+      category: string
+    seed: 42
+
+query_template: >
+  CREATE INDEX index_node_id IF NOT EXISTS
+  FOR (n:IndexNode) ON (n.id)
+
+parameters:
+  node_count:
+    type: integer
+    default: 500000
+    min: 10000
+    max: 5000000
+    description: >
+      Number of IndexNode nodes pre-loaded before index creation. The index
+      build time should scale with this value for engines that scan-to-build.
+      Engines with incremental index maintenance will show near-constant
+      index_build_ms regardless of node_count.
+  property_name:
+    type: string
+    default: "id"
+    description: >
+      Name of the property on which to build the index. Default is "id" (integer),
+      which is the most common production index key. Can be changed to "name"
+      (string) or "value" (float) to test type-specific index construction cost.
+
+correctness_oracle:
+  type: row_count
+  expected_row_count: 1
+  description: >
+    The CREATE INDEX statement returns a summary row confirming index creation.
+    Correctness is validated by subsequently running MATCH (n:IndexNode {id: 1})
+    RETURN n and verifying the query planner uses the new index (NodeIndexSeek
+    in the execution plan). Expected result row count is 1 for the index creation
+    confirmation.
+
+metrics:
+  - index_build_ms
+  - ingest_total_ms
+  - cold_ms
+
+tags:
+  - ingestion
+  - index
+  - index-build
+  - post-load
+  - schema-management
+
+warm_runs: 3
+timeout_seconds: 1200
+notes: >
+  Setup: load node_count IndexNode nodes WITHOUT any index (DROP INDEX if it
+  exists before starting). Then execute the CREATE INDEX query_template and
+  measure index_build_ms. The data load phase is not included in the benchmark
+  timing window. Drop and recreate the dataset between warm runs to ensure each
+  run starts from a cold index state. On engines where CREATE INDEX is
+  asynchronous (e.g., Neo4j with AWAIT), block until the index is ONLINE before
+  stopping the timer.

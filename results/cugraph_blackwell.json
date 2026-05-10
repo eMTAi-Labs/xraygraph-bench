@@ -1,0 +1,346 @@
+{
+  "benchmark": "cugraph_friendster",
+  "cugraph_version": "26.02.00",
+  "cudf_version": "26.02.01",
+  "dataset": "friendster",
+  "vertices": 65608366,
+  "edges": 1806067135,
+  "hardware": "RTX PRO 6000 Blackwell 96GB, 16 vCPU, 144GB RAM",
+  "results": {
+    "load_path_a": {
+      "method": "cuDF GPU CSV reader (cudf.read_csv)",
+      "result": "OOM",
+      "cudf_version": "26.02.01",
+      "gpu_vram_mb": 97887,
+      "peak_vram_mb": 92468,
+      "file_size_gb": 30.1,
+      "error": "std::bad_alloc: out_of_memory: CUDA error, maximum pool size exceeded",
+      "note": "cuDF CSV parser limitation \u2014 requires ~3x file size in GPU VRAM"
+    },
+    "load_path_b": {
+      "method": "numpy CPU read + cuDF transfer + directed CSR (only option that works)",
+      "cpu_read_s": 79.52,
+      "gpu_transfer_s": 7.57,
+      "csr_build_s": 2.72,
+      "total_s": 90.3,
+      "vertices": 65608366,
+      "edges": 1806067135,
+      "edges_raw": 1806067135,
+      "gpu": {
+        "samples": 680,
+        "avg_util": 4.6,
+        "max_util": 100,
+        "peak_mem_mb": 15052
+      }
+    },
+    "load_limitations": {
+      "cudf_csv_oom": "92 GB VRAM insufficient for 31 GB CSV parse",
+      "undirected_csr_oom": "sort+symmetrize exceeds 96 GB during CSR build",
+      "size_type_limit": "3.6B symmetric rows exceeds cudf int32 offset limit (2.1B)",
+      "result": "Only directed graph possible on single 96 GB GPU",
+      "xraygraphdb_comparison": "loaded same file directly, no preprocessing needed"
+    },
+    "pagerank_cold": {
+      "error": "",
+      "elapsed_s": 1.985
+    },
+    "pagerank_warm1": {
+      "error": "",
+      "elapsed_s": 0.695
+    },
+    "pagerank_warm2": {
+      "error": "",
+      "elapsed_s": 0.694
+    },
+    "triangle_cold": {
+      "error": "input graph must be undirected",
+      "elapsed_s": 0.2
+    },
+    "triangle_warm1": {
+      "error": "input graph must be undirected",
+      "elapsed_s": 0.2
+    },
+    "triangle_warm2": {
+      "error": "input graph must be undirected",
+      "elapsed_s": 0.2
+    },
+    "bfs": {
+      "median_teps": 20276236216.15382,
+      "harmonic_mean_teps": 10913498923.131516,
+      "runs": [
+        {
+          "source": 71768986,
+          "elapsed_s": 1.2389,
+          "vertices_reached": 65608366,
+          "edges_traversed": 1806067135,
+          "max_depth": 2147483647,
+          "teps": 1457825789.4194946,
+          "coverage_pct": 100.0,
+          "gpu": {
+            "samples": 1,
+            "avg_util": 100.0,
+            "max_util": 100,
+            "peak_mem_mb": 32384
+          }
+        },
+        {
+          "source": 54083823,
+          "elapsed_s": 0.0815,
+          "vertices_reached": 65608366,
+          "edges_traversed": 1806067135,
+          "max_depth": 2147483647,
+          "teps": 22153325426.51034,
+          "coverage_pct": 100.0,
+          "gpu": {
+            "samples": 1,
+            "avg_util": 25.0,
+            "max_util": 25,
+            "peak_mem_mb": 32592
+          }
+        },
+        {
+          "source": 54118654,
+          "elapsed_s": 0.082,
+          "vertices_reached": 65608366,
+          "edges_traversed": 1806067135,
+          "max_depth": 2147483647,
+          "teps": 22013675408.30247,
+          "coverage_pct": 100.0,
+          "gpu": {
+            "samples": 1,
+            "avg_util": 35.0,
+            "max_util": 35,
+            "peak_mem_mb": 32844
+          }
+        },
+        {
+          "source": 89750075,
+          "elapsed_s": 0.0603,
+          "vertices_reached": 65608366,
+          "edges_traversed": 1806067135,
+          "max_depth": 2147483647,
+          "teps": 29951842428.904175,
+          "coverage_pct": 100.0,
+          "gpu": {
+            "samples": 1,
+            "avg_util": 19.0,
+            "max_util": 19,
+            "peak_mem_mb": 33096
+          }
+        },
+        {
+          "source": 54085211,
+          "elapsed_s": 0.0817,
+          "vertices_reached": 65608366,
+          "edges_traversed": 1806067135,
+          "max_depth": 2147483647,
+          "teps": 22099221412.27498,
+          "coverage_pct": 100.0,
+          "gpu": {
+            "samples": 1,
+            "avg_util": 49.0,
+            "max_util": 49,
+            "peak_mem_mb": 33348
+          }
+        },
+        {
+          "source": 54118345,
+          "elapsed_s": 0.0805,
+          "vertices_reached": 65608366,
+          "edges_traversed": 1806067135,
+          "max_depth": 2147483647,
+          "teps": 22447209661.398197,
+          "coverage_pct": 100.0,
+          "gpu": {
+            "samples": 1,
+            "avg_util": 0.0,
+            "max_util": 0,
+            "peak_mem_mb": 33600
+          }
+        },
+        {
+          "source": 7688909,
+          "elapsed_s": 0.122,
+          "vertices_reached": 65608366,
+          "edges_traversed": 1806067135,
+          "max_depth": 2147483647,
+          "teps": 14799615330.72846,
+          "coverage_pct": 100.0,
+          "gpu": {
+            "samples": 1,
+            "avg_util": 44.0,
+            "max_util": 44,
+            "peak_mem_mb": 33852
+          }
+        },
+        {
+          "source": 19713658,
+          "elapsed_s": 0.1114,
+          "vertices_reached": 65608366,
+          "edges_traversed": 1806067135,
+          "max_depth": 2147483647,
+          "teps": 16211451212.427265,
+          "coverage_pct": 100.0,
+          "gpu": {
+            "samples": 1,
+            "avg_util": 0.0,
+            "max_util": 0,
+            "peak_mem_mb": 34104
+          }
+        },
+        {
+          "source": 54086114,
+          "elapsed_s": 0.0822,
+          "vertices_reached": 65608366,
+          "edges_traversed": 1806067135,
+          "max_depth": 2147483647,
+          "teps": 21971163384.608597,
+          "coverage_pct": 100.0,
+          "gpu": {
+            "samples": 1,
+            "avg_util": 80.0,
+            "max_util": 80,
+            "peak_mem_mb": 34356
+          }
+        },
+        {
+          "source": 10278129,
+          "elapsed_s": 0.1182,
+          "vertices_reached": 65608366,
+          "edges_traversed": 1806067135,
+          "max_depth": 2147483647,
+          "teps": 15280222217.07294,
+          "coverage_pct": 100.0,
+          "gpu": {
+            "samples": 1,
+            "avg_util": 0.0,
+            "max_util": 0,
+            "peak_mem_mb": 34608
+          }
+        },
+        {
+          "source": 106212071,
+          "elapsed_s": 0.0556,
+          "vertices_reached": 65608366,
+          "edges_traversed": 1806067135,
+          "max_depth": 2147483647,
+          "teps": 32472635539.77472,
+          "coverage_pct": 100.0,
+          "gpu": {
+            "samples": 1,
+            "avg_util": 84.0,
+            "max_util": 84,
+            "peak_mem_mb": 34860
+          }
+        },
+        {
+          "source": 7123984,
+          "elapsed_s": 0.1216,
+          "vertices_reached": 65608366,
+          "edges_traversed": 1806067135,
+          "max_depth": 2147483647,
+          "teps": 14847107075.514954,
+          "coverage_pct": 100.0,
+          "gpu": {
+            "samples": 1,
+            "avg_util": 0.0,
+            "max_util": 0,
+            "peak_mem_mb": 35112
+          }
+        },
+        {
+          "source": 45360334,
+          "elapsed_s": 0.0898,
+          "vertices_reached": 65608366,
+          "edges_traversed": 1806067135,
+          "max_depth": 2147483647,
+          "teps": 20118202802.443382,
+          "coverage_pct": 100.0,
+          "gpu": {
+            "samples": 1,
+            "avg_util": 70.0,
+            "max_util": 70,
+            "peak_mem_mb": 35364
+          }
+        },
+        {
+          "source": 6879541,
+          "elapsed_s": 0.1242,
+          "vertices_reached": 65608366,
+          "edges_traversed": 1806067135,
+          "max_depth": 2147483647,
+          "teps": 14540877585.383303,
+          "coverage_pct": 100.0,
+          "gpu": {
+            "samples": 2,
+            "avg_util": 0.0,
+            "max_util": 0,
+            "peak_mem_mb": 35616
+          }
+        },
+        {
+          "source": 20366275,
+          "elapsed_s": 0.1087,
+          "vertices_reached": 65608366,
+          "edges_traversed": 1806067135,
+          "max_depth": 2147483647,
+          "teps": 16608202953.695427,
+          "coverage_pct": 100.0,
+          "gpu": {
+            "samples": 1,
+            "avg_util": 84.0,
+            "max_util": 84,
+            "peak_mem_mb": 35868
+          }
+        },
+        {
+          "source": 45032137,
+          "elapsed_s": 0.0891,
+          "vertices_reached": 65608366,
+          "edges_traversed": 1806067135,
+          "max_depth": 2147483647,
+          "teps": 20276236216.15382,
+          "coverage_pct": 100.0,
+          "gpu": {
+            "samples": 1,
+            "avg_util": 11.0,
+            "max_util": 11,
+            "peak_mem_mb": 36120
+          }
+        }
+      ]
+    },
+    "wcc_cold": {
+      "error": "input graph must be undirected",
+      "elapsed_s": 0.2
+    },
+    "wcc_warm1": {
+      "error": "input graph must be undirected",
+      "elapsed_s": 0.2
+    },
+    "kcore_cold": {
+      "error": "input graph must be undirected",
+      "elapsed_s": 0.2
+    },
+    "kcore_warm1": {
+      "error": "input graph must be undirected",
+      "elapsed_s": 0.2
+    },
+    "bc_k50": {
+      "error": "non-success value returned from cugraph_betweenness_centrality: CUGRAPH_UNKNOWN_ERROR CUDA error encountered at: file=/pyenv/versions/3.13.11/lib/python3.13/site-packages/libraft/include/raft/util/cud",
+      "elapsed_s": 0.283
+    },
+    "bc_k100": {
+      "error": "non-success value returned from select_random_vertices: CUGRAPH_UNKNOWN_ERROR std::bad_alloc: CUDA error (failed to allocate 262433464 bytes) at: /__w/rmm/rmm/cpp/include/rmm/mr/cuda_memory_resource.h",
+      "elapsed_s": 0.2
+    },
+    "louvain_cold": {
+      "error": "input graph must be undirected",
+      "elapsed_s": 0.2
+    },
+    "louvain_warm1": {
+      "error": "input graph must be undirected",
+      "elapsed_s": 0.2
+    }
+  }
+}

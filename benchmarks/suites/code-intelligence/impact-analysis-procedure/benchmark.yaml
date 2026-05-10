@@ -1,0 +1,72 @@
+name: impact-analysis-procedure
+family: code-intelligence
+version: "1.0.0"
+tier: B
+status: published
+query_language: cypher
+description: >
+  Measures the performance of xray.impact_analysis($function_name) — a
+  native procedure that computes the blast radius from a single function.
+  Unlike a raw Cypher reverse traversal, this procedure uses engine-internal
+  optimizations for reachability counting and path aggregation. Returns
+  each affected function with its depth from the target and the number of
+  distinct paths reaching it.
+
+dataset:
+  name: synthetic-code-graph
+  type: code-graph
+  generator: code_graph
+  generator_params:
+    file_count: 5000
+    class_count: 15000
+    function_count: 100000
+    avg_calls_per_function: 4
+    avg_imports_per_file: 8
+    seed: 42
+
+query_template: >
+  CALL xray.impact_analysis($target)
+  YIELD affected, depth, path_count
+  RETURN affected, depth, path_count
+  ORDER BY depth
+
+parameters:
+  target:
+    type: string
+    default: "main"
+    description: >
+      The function name to analyze. The procedure computes the full
+      blast radius — every function transitively affected by a change
+      to this target.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 1
+  expected_row_count_max: 100000
+  expected_columns: [affected, depth, path_count]
+  description: >
+    The number of affected functions depends on the target's position
+    in the call graph. A highly-called utility function may impact
+    nearly the entire graph; a leaf function impacts very few.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - rows_out
+  - segments
+
+tags:
+  - code-intelligence
+  - impact-analysis
+  - blast-radius
+  - xray-procedure
+  - tier-b
+
+warm_runs: 10
+timeout_seconds: 300
+
+notes: >
+  Tier B — xrayGraphDB only. Other engines return UNSUPPORTED.
+  This procedure replaces multi-step Cypher reverse traversals with a
+  single native call that leverages internal graph indexes for
+  reachability computation.

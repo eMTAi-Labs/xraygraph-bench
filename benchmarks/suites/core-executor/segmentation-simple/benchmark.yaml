@@ -1,0 +1,81 @@
+name: segmentation-simple
+family: core-executor
+version: "1.0.0"
+tier: A
+status: published
+query_language: cypher
+description: >
+  Measures execution performance of a simple single-segment pipeline: scan,
+  filter, and return. This is the baseline segmentation test with only 1-2
+  pipeline segments and no materialization breakers. Isolates raw scan+filter
+  throughput without aggregation or graph traversal overhead. Performance here
+  sets the floor for more complex segmentation benchmarks.
+
+citation: >
+  Pipeline segmentation model follows the Volcano/iterator execution framework
+  (Graefe, 1994) adapted for property-graph engines. Simple scan-filter-return
+  represents the minimal pipeline depth against which all complex queries
+  should be compared.
+
+dataset:
+  name: synthetic-powerlaw-1m
+  type: synthetic
+  generator: powerlaw_graph
+  generator_params:
+    node_count: 1000000
+    edge_count: 5000000
+    exponent: 2.5
+    label: N
+    edge_type: E
+    seed: 42
+
+query_template: >
+  MATCH (n:N)
+  WHERE n.id > $threshold
+  RETURN n.id
+  LIMIT $limit
+
+parameters:
+  threshold:
+    type: integer
+    default: 5000
+    min: 0
+    max: 999999
+    description: >
+      Filter threshold on node id. Nodes with id > threshold pass the filter.
+      Controls selectivity of the scan — higher values yield fewer rows.
+  limit:
+    type: integer
+    default: 1000
+    min: 1
+    max: 100000
+    description: >
+      Maximum number of result rows returned. Caps materialization cost
+      independent of the filter selectivity.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 1
+  expected_row_count_max: 1000
+  expected_columns: [id]
+  description: >
+    With threshold=5000 and limit=1000, the query should return up to 1000
+    rows. The exact count depends on the synthetic dataset distribution, but
+    at least 1 row must be returned and at most limit rows.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - segments
+  - rows_out
+
+tags:
+  - core
+  - segmentation
+  - simple
+  - scan
+  - filter
+  - baseline
+
+warm_runs: 10
+timeout_seconds: 60

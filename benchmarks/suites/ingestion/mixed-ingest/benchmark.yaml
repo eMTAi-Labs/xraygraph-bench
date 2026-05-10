@@ -1,0 +1,117 @@
+name: mixed-ingest
+family: ingestion
+version: "1.0.0"
+tier: A
+status: published
+query_language: cypher
+description: >
+  Measures concurrent read latency while bulk write operations are in progress.
+  The benchmark interleaves read queries between write batches: every N write
+  transactions, a read query (MATCH count) is executed and its latency recorded.
+  This answers the production question "can I query while loading?" — a critical
+  capability for live systems that must remain queryable during data ingestion.
+  Engines with exclusive write locks will cause read timeouts or high latency
+  spikes during writes. Engines with MVCC (multi-version concurrency control)
+  or read-write separation will show stable read latency throughout. Key outputs
+  are ingest_nodes_per_sec (write throughput) and latency_p50/p95 of the
+  interleaved reads (read health under write pressure).
+
+citation: >
+  Concurrent read-write workload characterisation follows the YCSB Workload F
+  (read-modify-write) pattern (Cooper et al., 2010) adapted for graph write
+  scenarios. The interleaved read design is inspired by the "hot standby"
+  benchmark methodology used in TPC-C variants that measure OLTP query latency
+  under concurrent write load.
+
+dataset:
+  name: synthetic-nodes-100k-mixed
+  type: synthetic
+  generator: flat_nodes
+  generator_params:
+    node_count: 100000
+    label: MixedNode
+    properties:
+      id: integer
+      name: string
+      value: float
+      category: string
+      created_at: integer
+    seed: 42
+
+query_template: >
+  UNWIND $batch AS row
+  CREATE (n:MixedNode {
+    id: row.id,
+    name: row.name,
+    value: row.value,
+    category: row.category,
+    created_at: row.created_at
+  })
+  WITH count(*) AS writes
+  RETURN writes
+
+parameters:
+  node_count:
+    type: integer
+    default: 100000
+    min: 10000
+    max: 1000000
+    description: >
+      Total nodes to ingest during the benchmark run. The interleaved reads are
+      distributed evenly across the write phase. Larger node counts increase
+      the duration of write pressure on the read path.
+  batch_size:
+    type: integer
+    default: 1000
+    min: 1
+    max: 10000
+    description: >
+      Nodes per write transaction. Controls write transaction frequency and
+      therefore how often read latency measurements are interleaved.
+  read_interval:
+    type: integer
+    default: 100
+    min: 1
+    max: 1000
+    description: >
+      Execute one interleaved read query for every read_interval write
+      transactions. Default of 100 means a read is issued after every 100th
+      write batch, producing approximately node_count / (batch_size * 100)
+      read samples during the benchmark. Lower values produce more read samples
+      but may slow overall write throughput.
+
+correctness_oracle:
+  type: row_count
+  expected_row_count: 100000
+  description: >
+    After all write batches complete, MATCH (n:MixedNode) RETURN count(n) must
+    equal node_count. Verifies no writes were lost due to lock conflicts with
+    interleaved reads, transaction rollbacks under contention, or read-induced
+    write stalls.
+
+metrics:
+  - ingest_nodes_per_sec
+  - ingest_total_ms
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - ingest_batch_size
+
+tags:
+  - ingestion
+  - concurrency
+  - mixed-workload
+  - read-write
+  - mvcc
+  - latency
+
+warm_runs: 3
+timeout_seconds: 900
+notes: >
+  The interleaved read query is: MATCH (n:MixedNode) RETURN count(n) AS total.
+  Latency metrics (latency_p50, latency_p95, latency_p99) apply to the read
+  queries only, not the write batches. Record read latency separately from write
+  timing. An engine that serialises reads behind writes will show latency_p95
+  spikes correlated with batch commit events — this pattern should be flagged
+  in result annotations. Engines with zero read latency degradation under write
+  load represent the best-case MVCC implementation.

@@ -1,0 +1,85 @@
+name: transpilation-overhead
+family: gfql
+version: "1.0.0"
+tier: B
+status: published
+query_language: gfql
+description: >
+  Measures the raw transpilation overhead of GFQL by executing the same
+  logical query in both GFQL and Cypher on the same engine and dataset,
+  then comparing cold_ms. The GFQL frontend must parse the chain syntax,
+  lower it to the shared LogicalOperator tree, and inject tenant scoping —
+  all before the shared planner/optimizer/executor runs. This benchmark
+  isolates that frontend cost. Uses a minimal query (simple scan + filter)
+  to minimize execution time and maximize the visibility of transpilation
+  overhead.
+
+citation: >
+  Neumann, "Efficiently Compiling Efficient Query Plans for Modern Hardware"
+  (VLDB 2011). Frontend overhead measurement methodology.
+
+dataset:
+  name: synthetic-uniform-small
+  type: synthetic
+  generator: uniform_nodes
+  generator_params:
+    node_count: 10000
+    properties:
+      id: integer
+      value: float
+    seed: 42
+
+query_template: >
+  chain()
+    .n({"label": "Node"})
+    .filter("value", ">", 0.5)
+    .map("id")
+
+gfql_template: >
+  chain()
+    .n({"label": "Node"})
+    .filter("value", ">", 0.5)
+    .map("id")
+
+parameters:
+  iterations:
+    type: integer
+    default: 1000
+    min: 100
+    max: 10000
+    description: >
+      Number of cold executions to average. Higher values reduce noise
+      in transpilation overhead measurement.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 1
+  expected_row_count_max: 10000
+  description: >
+    Approximately 50% of 10K nodes pass the filter. Exact count not critical —
+    this benchmark measures transpilation overhead, not result correctness.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - compile_ms
+  - rows_out
+
+tags:
+  - gfql
+  - tier-b
+  - transpilation
+  - overhead
+  - frontend-cost
+
+warm_runs: 50
+timeout_seconds: 60
+
+notes: >
+  Tier B benchmark — xrayGraphDB only. This is the KEY diagnostic benchmark
+  for GFQL. Run this alongside the Cypher equivalent (scan-filter-project
+  with the same small dataset) and compare cold_ms. The delta is the
+  GFQL transpilation cost. On a well-optimized frontend, this should be
+  sub-millisecond. If it's measurable at >1ms, the GFQL parser/lowering
+  path needs optimization. Uses a deliberately small dataset (10K nodes)
+  so execution time is minimal and frontend cost dominates.

@@ -1,0 +1,85 @@
+name: route-distance
+family: geometric
+version: "1.0.0"
+tier: A
+status: published
+query_language: cypher
+description: >
+  Compute the total geographic distance along a graph path. Given a start and
+  end node, find a path and sum the haversine distances between consecutive
+  nodes in the path. This is the "driving distance vs straight-line distance"
+  problem — the graph path may be much longer than the great circle distance
+  between endpoints because it follows the graph's edge structure.
+
+  This benchmark tests: (1) shortest path computation, (2) per-edge distance
+  calculation along the path, (3) aggregation of distances. It exposes whether
+  the engine can push distance computation into the path-finding algorithm or
+  must compute it as a post-processing step.
+
+  Real-world: flight route distances, shipping route optimization, pipeline
+  network length, road network actual vs as-the-crow-flies distance.
+
+citation: >
+  Shortest weighted path on geographic networks. Dijkstra with haversine
+  weights from transportation network optimization literature.
+
+dataset:
+  name: synthetic-geo-graph
+  type: synthetic
+  generator: power_law
+  generator_params:
+    node_count: 50000
+    m: 5
+    seed: 42
+
+query_template: >
+  MATCH path = shortestPath((a:GeoPoint {id: $start_id})-[:CONNECTED*]-(b:GeoPoint {id: $end_id}))
+  WITH path, nodes(path) AS waypoints
+  UNWIND range(0, size(waypoints)-2) AS i
+  WITH path, waypoints[i] AS from_node, waypoints[i+1] AS to_node
+  WITH path,
+    sum(HAVERSINE_DISTANCE(from_node.lat, from_node.lon, to_node.lat, to_node.lon)) AS route_distance_m,
+    HAVERSINE_DISTANCE(head(nodes(path)).lat, head(nodes(path)).lon,
+                       last(nodes(path)).lat, last(nodes(path)).lon) AS straight_line_m
+  RETURN length(path) AS hops, route_distance_m, straight_line_m,
+    route_distance_m / straight_line_m AS detour_ratio
+
+parameters:
+  start_id:
+    type: integer
+    default: 0
+    description: >
+      Starting node ID.
+  end_id:
+    type: integer
+    default: 1000
+    description: >
+      Destination node ID.
+
+correctness_oracle:
+  type: invariant
+  description: >
+    route_distance_m must be >= straight_line_m (triangle inequality).
+    detour_ratio must be >= 1.0. hops must be >= 1.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - compile_ms
+  - rows_out
+
+tags:
+  - geometric
+  - tier-a
+  - shortest-path
+  - route-distance
+  - detour-ratio
+
+warm_runs: 20
+timeout_seconds: 300
+
+notes: >
+  Tier A — uses standard Cypher shortestPath + HAVERSINE_DISTANCE. The
+  detour_ratio is a useful real-world metric: how much longer is the graph
+  path vs the straight line? On well-connected graphs it's close to 1.0.
+  On sparse or poorly-connected graphs it can be 5-10x.

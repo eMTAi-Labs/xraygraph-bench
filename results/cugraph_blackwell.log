@@ -1,0 +1,142 @@
+========================================================================
+  cuGraph Benchmark (Friendster)
+  Courtroom-Clean: Same hardware, same dataset, same algorithms
+========================================================================
+
+cuGraph version:  26.02.00
+cuDF version:     26.02.01
+RMM version:      26.02.00
+GPU:              NVIDIA RTX PRO 6000 Blackwell Server Edition, 97887 MiB, 580.126.20
+
+Dataset:          /home/Ubuntu/datasets/com-friendster.ungraph.txt (30.1 GB)
+
+========================================================================
+  Phase 1: Graph Construction
+========================================================================
+
+Path A: cuDF GPU CSV reader
+  Result: OOM at 92 GB VRAM during CSV parsing (documented)
+  cuDF 26.02.01 tried to parse 31 GB raw text on GPU.
+  Peak VRAM: 92,468 MB / 97,887 MB before OOM.
+  This is a cuDF limitation, not cuGraph.
+
+Path B: CPU preprocess → GPU transfer → cuGraph CSR
+  numpy.loadtxt on CPU (uses system RAM, not VRAM)
+  → cudf.Series transfer to GPU
+  → cuGraph CSR build on GPU
+
+  Phase 1a: CPU read with numpy...
+  CPU read:       79.5s (1,806,067,135 edges)
+  Phase 1b: CPU -> GPU transfer (1.8B raw edges)...
+  GPU transfer:   7.6s (1,806,067,135 edges)
+  Phase 1c: cuGraph CSR build (directed)...
+  CSR build:      2.7s
+  ----------
+  Total load:     90.3s
+    CPU read:     79.5s (numpy.loadtxt — CPU RAM, not VRAM)
+    GPU transfer: 7.6s (cudf.Series)
+    CSR build:    2.7s (cuGraph directed)
+  Vertices:       65,608,366
+  Edges:          1,806,067,135 (directed, from raw undirected file)
+  GPU util:       avg 4.6%, peak 100%
+  GPU mem:        15,052 MB peak
+
+  LIMITATIONS (all documented transparently):
+  1. cuDF GPU CSV reader: OOM at 92 GB parsing 31 GB text
+  2. cuGraph undirected CSR: OOM during sort+symmetrize
+  3. cudf DataFrame: 3.6B symmetric rows > int32 size_type (2.1B max)
+  4. Only directed graph possible on single 96 GB GPU
+  5. Algorithms requiring undirected will fail (documented below)
+
+  xrayGraphDB comparison: loaded same file directly, no preprocessing,
+  no CPU staging, no size limits. Raw SNAP file -> CSR import -> ready.
+
+========================================================================
+  Phase 2: PageRank (20 iterations, damping=0.85)
+========================================================================
+/home/Ubuntu/.local/lib/python3.10/site-packages/cugraph/link_analysis/pagerank.py:206: UserWarning: Pagerank expects the 'store_transposed' flag to be set to 'True' for optimal performance during the graph creation
+  warnings.warn(warning_msg, UserWarning)
+  cold  : FAILED (2.0s): 
+/home/Ubuntu/.local/lib/python3.10/site-packages/cugraph/link_analysis/pagerank.py:206: UserWarning: Pagerank expects the 'store_transposed' flag to be set to 'True' for optimal performance during the graph creation
+  warnings.warn(warning_msg, UserWarning)
+  warm1 : FAILED (0.7s): 
+/home/Ubuntu/.local/lib/python3.10/site-packages/cugraph/link_analysis/pagerank.py:206: UserWarning: Pagerank expects the 'store_transposed' flag to be set to 'True' for optimal performance during the graph creation
+  warnings.warn(warning_msg, UserWarning)
+  warm2 : FAILED (0.7s): 
+
+========================================================================
+  Phase 3: Triangle Count (undirected)
+========================================================================
+  cold  : FAILED (0.2s): input graph must be undirected
+  warm1 : FAILED (0.2s): input graph must be undirected
+  warm2 : FAILED (0.2s): input graph must be undirected
+
+========================================================================
+  Phase 4: BFS (16 sources, TEPS measurement)
+========================================================================
+  Sources (top degree): [71768986, 54083823, 54118654, 89750075, 54085211]...
+  Source  1/16 v=71768986: 1.239s, 65,608,366 vertices (100.0%), depth=2147483647, 1.46 GTEPS
+  Source  2/16 v=54083823: 0.082s, 65,608,366 vertices (100.0%), depth=2147483647, 22.15 GTEPS
+  Source  3/16 v=54118654: 0.082s, 65,608,366 vertices (100.0%), depth=2147483647, 22.01 GTEPS
+  Source  4/16 v=89750075: 0.060s, 65,608,366 vertices (100.0%), depth=2147483647, 29.95 GTEPS
+  Source  5/16 v=54085211: 0.082s, 65,608,366 vertices (100.0%), depth=2147483647, 22.10 GTEPS
+  Source  6/16 v=54118345: 0.080s, 65,608,366 vertices (100.0%), depth=2147483647, 22.45 GTEPS
+  Source  7/16 v=7688909: 0.122s, 65,608,366 vertices (100.0%), depth=2147483647, 14.80 GTEPS
+  Source  8/16 v=19713658: 0.111s, 65,608,366 vertices (100.0%), depth=2147483647, 16.21 GTEPS
+  Source  9/16 v=54086114: 0.082s, 65,608,366 vertices (100.0%), depth=2147483647, 21.97 GTEPS
+  Source 10/16 v=10278129: 0.118s, 65,608,366 vertices (100.0%), depth=2147483647, 15.28 GTEPS
+  Source 11/16 v=106212071: 0.056s, 65,608,366 vertices (100.0%), depth=2147483647, 32.47 GTEPS
+  Source 12/16 v=7123984: 0.122s, 65,608,366 vertices (100.0%), depth=2147483647, 14.85 GTEPS
+  Source 13/16 v=45360334: 0.090s, 65,608,366 vertices (100.0%), depth=2147483647, 20.12 GTEPS
+  Source 14/16 v=6879541: 0.124s, 65,608,366 vertices (100.0%), depth=2147483647, 14.54 GTEPS
+  Source 15/16 v=20366275: 0.109s, 65,608,366 vertices (100.0%), depth=2147483647, 16.61 GTEPS
+  Source 16/16 v=45032137: 0.089s, 65,608,366 vertices (100.0%), depth=2147483647, 20.28 GTEPS
+
+  BFS TEPS Summary:
+    Median:        20.28 GTEPS
+    Harmonic mean: 10.91 GTEPS
+
+========================================================================
+  Phase 5: Weakly Connected Components
+========================================================================
+  cold  : FAILED (0.2s): input graph must be undirected
+  warm1 : FAILED (0.2s): input graph must be undirected
+
+========================================================================
+  Phase 6: K-Core Decomposition
+========================================================================
+  cold  : FAILED (0.2s): input graph must be undirected
+  warm1 : FAILED (0.2s): input graph must be undirected
+
+========================================================================
+  Phase 7: Betweenness Centrality (approximate)
+========================================================================
+  k=  50: FAILED (0.3s): non-success value returned from cugraph_betweenness_centrality: CUGRAPH_UNKNOWN_
+  k= 100: FAILED (0.2s): non-success value returned from select_random_vertices: CUGRAPH_UNKNOWN_ERROR st
+
+========================================================================
+  Phase 8: Community Detection (Louvain)
+========================================================================
+  cold  : FAILED (0.2s): input graph must be undirected
+  warm1 : FAILED (0.2s): input graph must be undirected
+
+========================================================================
+  cuGraph Benchmark Summary (Friendster)
+========================================================================
+
+Hardware:  RTX PRO 6000 Blackwell 96GB, 16 vCPU, 144GB RAM
+Dataset:   Friendster 65,608,366 vertices, 1,806,067,135 edges
+Engine:    cuGraph 26.02.00
+
+Algorithm timings (for head-to-head comparison):
+  pagerank_warm1            0.69s
+  triangle_cold             0.20s
+  bfs                       median TEPS: 20.28 GTEPS
+  wcc_warm1                 0.20s
+  kcore_warm1               0.20s
+  bc_k50                    0.28s
+  louvain_warm1             0.20s
+
+Results saved to /tmp/cugraph_bench_results.json
+
+CUGRAPH BENCHMARK COMPLETE

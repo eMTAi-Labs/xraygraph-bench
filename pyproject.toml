@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xraybench"
+version = "0.1.0"
+description = "Benchmark runner for xraygraph-bench suite"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.10"
+authors = [
+    {name = "eMTAi Labs"},
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Database",
+    "Topic :: Software Development :: Testing",
+]
+dependencies = [
+    "pyyaml>=6.0",
+    "jsonschema>=4.17",
+]
+
+[project.optional-dependencies]
+neo4j = ["neo4j>=5.0"]
+ogb = ["ogb>=1.3"]
+dev = [
+    "ruff>=0.4",
+    "mypy>=1.10",
+    "pytest>=8.0",
+]
+
+[project.scripts]
+xraybench = "tools.xraybench.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["tools.xraybench*"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false

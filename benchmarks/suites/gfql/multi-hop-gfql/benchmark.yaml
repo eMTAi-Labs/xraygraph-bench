@@ -1,0 +1,96 @@
+name: multi-hop-gfql
+family: gfql
+version: "1.0.0"
+tier: B
+status: published
+query_language: gfql
+description: >
+  GFQL deep traversal using e_forward with hops parameter. This is the GFQL
+  equivalent of the graph-breakers multi-hop-traversal benchmark. Uses GFQL's
+  native hop control syntax (min_hops, max_hops) instead of Cypher's
+  variable-length path pattern (*1..N). Tests whether GFQL's hop parameters
+  transpile to efficient variable-length path expansion. At 10+ hops on
+  power-law graphs, this is where the combinatorial explosion makes or breaks
+  engine performance.
+
+citation: >
+  Graphistry GFQL specification — hops, min_hops, max_hops edge parameters.
+  Deep traversal benchmark methodology from Graph500 BFS specification and
+  Beamer et al., "Direction-Optimizing Breadth-First Search" (SC 2012).
+
+dataset:
+  name: synthetic-deep-traversal
+  type: synthetic
+  generator: deep_traversal
+  generator_params:
+    num_roots: 10
+    fanout_per_level: [50, 50, 30, 20, 10, 5, 3, 2, 2, 2]
+    seed: 42
+
+query_template: >
+  chain()
+    .n({"id": $seed_id})
+    .e_forward({"max_hops": $max_depth})
+    .n()
+
+gfql_template: >
+  chain()
+    .n({"id": $seed_id})
+    .e_forward({"max_hops": $max_depth})
+    .n()
+
+parameters:
+  seed_id:
+    type: integer
+    default: 0
+    min: 0
+    max: 9
+    description: >
+      Root node ID to start traversal from (0-9 for 10 roots).
+  max_depth:
+    type: integer
+    default: 5
+    min: 1
+    max: 10
+    description: >
+      Maximum traversal depth in hops. At depth 10 with fanout [50,50,...],
+      the frontier explodes combinatorially. This parameter is the primary
+      stress control.
+
+correctness_oracle:
+  type: invariant
+  description: >
+    All returned nodes must be reachable from seed_id within max_depth hops.
+    Exact row count depends on graph structure and pruning behavior.
+  expected_row_count_min: 1
+  expected_row_count_max: 100000000
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - compile_ms
+  - rows_in
+  - rows_out
+  - segments
+  - breakers
+  - cache_hit
+  - fallback
+  - deopt
+
+tags:
+  - gfql
+  - tier-b
+  - deep-traversal
+  - combinatorial-explosion
+  - frontier
+
+warm_runs: 5
+timeout_seconds: 600
+
+notes: >
+  Tier B benchmark — xrayGraphDB only. This is the "final boss" benchmark
+  for GFQL. At max_depth=10 with fanout [50,50,30,20,10,5,3,2,2,2], the
+  theoretical frontier reaches trillions of paths. Engines must prune,
+  stream, or fail gracefully. Compare against multi-hop-traversal (Cypher)
+  to measure whether GFQL's hop syntax transpiles to the same efficient
+  expansion operators.

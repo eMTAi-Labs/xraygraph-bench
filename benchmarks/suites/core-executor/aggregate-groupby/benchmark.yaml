@@ -1,0 +1,90 @@
+name: aggregate-groupby
+family: core-executor
+version: "1.0.0"
+description: >
+  Measures group-by aggregation cost as a function of input cardinality and
+  group count. Aggregation is a materialization boundary: the engine must
+  accumulate all input rows before producing output. This benchmark exposes
+  how efficiently the engine handles hash-based or sort-based grouping, memory
+  allocation for group state, and the transition from streaming to blocking
+  execution.
+
+dataset:
+  name: synthetic-categorical
+  type: synthetic
+  generator: categorical_nodes
+  generator_params:
+    node_count: 5000000
+    properties:
+      id: integer
+      category: string
+      region: string
+      amount: float
+    category_cardinality: 1000
+    region_cardinality: 50
+    seed: 42
+
+query_template: >
+  MATCH (n:Node)
+  RETURN n.category, n.region, count(*) AS cnt, sum(n.amount) AS total
+  ORDER BY total DESC
+
+parameters:
+  row_count:
+    type: integer
+    default: 5000000
+    min: 100000
+    max: 50000000
+    description: Number of input nodes.
+  category_cardinality:
+    type: integer
+    default: 1000
+    min: 10
+    max: 1000000
+    description: >
+      Number of distinct category values. Controls the number of groups in
+      the aggregation. Low cardinality (10) is fast; high cardinality
+      (1M) stresses hash table sizing and memory.
+  region_cardinality:
+    type: integer
+    default: 50
+    min: 5
+    max: 500
+    description: >
+      Number of distinct region values. Combined with category, produces
+      category_cardinality * region_cardinality groups.
+  include_sort:
+    type: boolean
+    default: true
+    description: >
+      Whether to include ORDER BY on the aggregation output. When true,
+      adds a second materialization boundary (Sort after Aggregate).
+
+correctness_oracle:
+  type: row_count
+  expected_row_count: 50000
+  expected_columns: [category, region, cnt, total]
+  description: >
+    With 1000 categories and 50 regions, expect 50,000 groups. Each group's
+    count should sum to approximately row_count / 50,000. The total column
+    should be non-negative for all groups.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - compile_ms
+  - rows_in
+  - rows_out
+  - segments
+  - breakers
+  - cache_hit
+
+tags:
+  - core
+  - aggregation
+  - groupby
+  - materialization
+  - blocking-operator
+
+warm_runs: 10
+timeout_seconds: 180

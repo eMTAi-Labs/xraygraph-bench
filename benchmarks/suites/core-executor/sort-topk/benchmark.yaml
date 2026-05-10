@@ -1,0 +1,88 @@
+name: sort-topk
+family: core-executor
+version: "1.0.0"
+description: >
+  Measures sort and top-k (ORDER BY + LIMIT) performance. Sort is a
+  materialization boundary that requires buffering the entire input before
+  producing output. Top-k optimization allows engines to maintain only the
+  top K rows during the sort, reducing memory usage from O(N) to O(K).
+  This benchmark exposes whether the engine applies top-k optimization and
+  how sort cost scales with input size and sort key width.
+
+dataset:
+  name: synthetic-sortable
+  type: synthetic
+  generator: uniform_nodes
+  generator_params:
+    node_count: 10000000
+    properties:
+      id: integer
+      score: float
+      timestamp: integer
+      label: string
+    seed: 42
+
+query_template: >
+  MATCH (n:Node)
+  RETURN n.id, n.score, n.timestamp
+  ORDER BY n.score DESC, n.timestamp ASC
+  LIMIT $k
+
+parameters:
+  row_count:
+    type: integer
+    default: 10000000
+    min: 100000
+    max: 100000000
+    description: Number of nodes in the dataset.
+  k:
+    type: integer
+    default: 100
+    min: 1
+    max: 1000000
+    description: >
+      LIMIT value. Small K (1-100) tests top-k optimization. Large K
+      (approaching row_count) degrades to full sort.
+  sort_keys:
+    type: integer
+    default: 2
+    min: 1
+    max: 5
+    description: >
+      Number of sort keys. Multi-key sorts test comparison function cost
+      and memory layout efficiency.
+  pre_filter:
+    type: boolean
+    default: false
+    description: >
+      When true, adds a WHERE clause that filters 50% of rows before
+      sorting. Tests interaction between filter and sort operators.
+
+correctness_oracle:
+  type: row_count
+  expected_row_count: 100
+  expected_columns: [id, score, timestamp]
+  description: >
+    With LIMIT 100, exactly 100 rows should be returned. The first row
+    should have the highest score value. Rows should be in descending
+    score order, with ties broken by ascending timestamp.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - compile_ms
+  - rows_in
+  - rows_out
+  - segments
+  - breakers
+  - cache_hit
+
+tags:
+  - core
+  - sort
+  - topk
+  - materialization
+  - memory
+
+warm_runs: 10
+timeout_seconds: 180

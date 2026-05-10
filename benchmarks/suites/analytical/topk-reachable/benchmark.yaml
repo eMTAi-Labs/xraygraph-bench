@@ -1,0 +1,86 @@
+name: topk-reachable
+family: analytical
+version: "1.0.0"
+tier: B
+status: published
+query_language: cypher
+description: >
+  Measures the performance of xray.topk_reachable($start_id, $property,
+  $k, $max_depth) — a native procedure that finds the top-K reachable
+  nodes ranked by a property value. This fuses BFS traversal with a
+  bounded priority queue, pruning the search once K candidates are found.
+  Unlike a naive traverse-then-sort approach, the engine can terminate
+  early when the frontier cannot produce higher-ranked results.
+
+dataset:
+  name: synthetic-power-law
+  type: synthetic
+  generator: power_law
+  generator_params:
+    node_count: 1000000
+    edge_count: 10000000
+    properties:
+      value: float
+    seed: 42
+
+query_template: >
+  CALL xray.topk_reachable($start_id, 'value', $k, $max_depth)
+  YIELD node_id, value, depth
+  RETURN *
+
+parameters:
+  start_id:
+    type: integer
+    default: 0
+    min: 0
+    max: 999999
+    description: >
+      Starting node ID for the reachability search.
+  k:
+    type: integer
+    default: 100
+    min: 1
+    max: 10000
+    description: >
+      Number of top-ranked reachable nodes to return.
+  max_depth:
+    type: integer
+    default: 5
+    min: 1
+    max: 10
+    description: >
+      Maximum traversal depth. Limits the reachability horizon.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 1
+  expected_row_count_max: 10000
+  expected_columns: [node_id, value, depth]
+  description: >
+    Returns up to $k rows, each representing a reachable node ranked
+    by the specified property. Results are ordered by value descending.
+    If fewer than $k nodes are reachable within max_depth, fewer rows
+    are returned.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - rows_out
+  - segments
+
+tags:
+  - analytical
+  - topk
+  - reachability
+  - ranked-traversal
+  - xray-procedure
+  - tier-b
+
+warm_runs: 15
+timeout_seconds: 300
+
+notes: >
+  Tier B — xrayGraphDB only. Other engines return UNSUPPORTED.
+  Top-K reachable fuses BFS with a priority queue for early termination.
+  This is significantly faster than traverse-all-then-sort for small K
+  on large graphs.

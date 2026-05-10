@@ -1,0 +1,68 @@
+name: query-budget-enforcement
+family: analytical
+version: "1.0.0"
+tier: B
+status: published
+query_language: cypher
+description: >
+  Tests whether xray.query_budget($budget_ms) correctly enforces a
+  wall-clock time limit on subsequent query execution. The procedure sets
+  a per-query budget, then an expensive traversal query runs. The engine
+  must terminate the query early and return partial results rather than
+  exceeding the budget. This benchmark measures both budget adherence
+  accuracy and the overhead of budget enforcement.
+
+dataset:
+  name: synthetic-power-law
+  type: synthetic
+  generator: power_law
+  generator_params:
+    node_count: 1000000
+    edge_count: 10000000
+    seed: 42
+
+query_template: >
+  CALL xray.query_budget($budget_ms)
+
+parameters:
+  budget_ms:
+    type: integer
+    default: 50
+    min: 5
+    max: 5000
+    description: >
+      Wall-clock millisecond budget for query execution. The engine
+      should terminate any subsequent query that exceeds this budget
+      and return partial results. Very low budgets (5-10ms) test
+      enforcement granularity.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 0
+  expected_row_count_max: 1
+  description: >
+    The budget procedure itself returns zero or one acknowledgment row.
+    The key correctness check is that subsequent expensive queries
+    terminate within the budget rather than running to completion.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - rows_out
+
+tags:
+  - analytical
+  - budgeted
+  - query-budget
+  - enforcement
+  - xray-procedure
+  - tier-b
+
+warm_runs: 20
+timeout_seconds: 300
+
+notes: >
+  Tier B — xrayGraphDB only. Other engines return UNSUPPORTED.
+  Query budget enforcement is a cooperative mechanism: the engine
+  checks the budget at segment boundaries during execution and
+  terminates gracefully if the budget is exceeded.

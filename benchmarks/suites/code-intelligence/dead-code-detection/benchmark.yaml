@@ -1,0 +1,63 @@
+name: dead-code-detection
+family: code-intelligence
+version: "1.0.0"
+tier: B
+status: published
+query_language: cypher
+description: >
+  Measures the performance of xray.dead_code() — a native procedure that
+  identifies unreachable functions by performing full-graph reachability
+  analysis from all entry points. This combines reverse call-graph traversal
+  with entry-point detection in a single engine-native operation. Dead code
+  detection is a core code intelligence capability for codebase hygiene.
+
+dataset:
+  name: synthetic-code-graph
+  type: code-graph
+  generator: code_graph
+  generator_params:
+    file_count: 5000
+    class_count: 15000
+    function_count: 100000
+    avg_calls_per_function: 4
+    avg_imports_per_file: 8
+    seed: 42
+
+query_template: >
+  CALL xray.dead_code()
+  YIELD name, reason, confidence
+  RETURN name, reason, confidence
+
+parameters: {}
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 0
+  expected_row_count_max: 100000
+  expected_columns: [name, reason, confidence]
+  description: >
+    Returns zero or more rows, one per unreachable function. On a synthetic
+    code graph with 100K functions, expect a fraction to be unreachable
+    depending on connectivity. The confidence field indicates how certain
+    the engine is about the dead code classification.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - rows_out
+  - segments
+
+tags:
+  - code-intelligence
+  - dead-code
+  - reachability
+  - xray-procedure
+  - tier-b
+
+warm_runs: 10
+timeout_seconds: 600
+
+notes: >
+  Tier B — xrayGraphDB only. Other engines return UNSUPPORTED.
+  Full graph reachability scan is the most expensive single-pass code
+  intelligence operation. The 600s timeout accounts for large graphs.

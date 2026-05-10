@@ -1,0 +1,100 @@
+name: graph-constrained-ann
+family: hybrid-vector
+version: "1.0.0"
+tier: B
+status: draft
+query_language: cypher
+description: >
+  Measures approximate nearest neighbor search filtered by graph relationship
+  constraints. Instead of pure vector similarity, candidates must also satisfy
+  a graph predicate — e.g., "find the 10 most similar nodes that are within
+  3 hops of a given seed node." This benchmark exposes: (1) whether the engine
+  pushes the graph constraint into the ANN index (pre-filtering) or applies it
+  after retrieval (post-filtering), (2) the cost of constraint evaluation
+  relative to unconstrained ANN, (3) precision/recall impact of the constraint.
+
+  Pre-filtering is fundamentally harder but avoids scanning irrelevant vectors.
+  Post-filtering is simpler but wastes work on candidates that fail the graph
+  predicate. The benchmark makes this architectural difference measurable.
+
+citation: >
+  Filtered vector search from Pinecone/Weaviate/Milvus benchmarks.
+  Graph-aware filtering from knowledge graph embedding literature.
+
+dataset:
+  name: synthetic-vector-graph
+  type: synthetic
+  generator: power_law
+  generator_params:
+    node_count: 50000
+    m: 5
+    seed: 42
+
+query_template: >
+  MATCH (seed:N {id: $seed_id})-[*1..$constraint_hops]->(candidate)
+  WITH DISTINCT candidate
+  CALL xray.vector_similarity(candidate, 'embedding', $query_vector)
+  YIELD score
+  RETURN candidate, score
+  ORDER BY score DESC
+  LIMIT $top_k
+
+parameters:
+  seed_id:
+    type: integer
+    default: 0
+    min: 0
+    max: 49999
+    description: >
+      Seed node for the graph constraint. Only nodes reachable within
+      constraint_hops are eligible for ANN results.
+  constraint_hops:
+    type: integer
+    default: 3
+    min: 1
+    max: 5
+    description: >
+      Maximum hop distance from seed node for ANN candidates.
+  top_k:
+    type: integer
+    default: 10
+    min: 1
+    max: 100
+    description: >
+      Number of nearest neighbors to return (after graph filtering).
+  vector_dimensions:
+    type: integer
+    default: 128
+    min: 32
+    max: 1536
+    description: >
+      Embedding vector dimensionality.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 0
+  expected_row_count_max: 100
+  description: >
+    Result count depends on how many graph-reachable nodes exist within
+    constraint_hops. May be 0 if the seed node is isolated.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - rows_out
+
+tags:
+  - hybrid-vector
+  - tier-b
+  - constrained-ann
+  - pre-filter-vs-post-filter
+  - graph-predicate
+
+warm_runs: 20
+timeout_seconds: 300
+
+notes: >
+  Tier B benchmark. Compare against unconstrained ANN (same top_k, no graph
+  predicate) to measure the cost of the constraint. Key metric: constraint
+  overhead = constrained_p50 - unconstrained_p50. Also measure: candidate
+  count before vs after filtering (expose pre-filter vs post-filter strategy).

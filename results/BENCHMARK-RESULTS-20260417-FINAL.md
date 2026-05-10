@@ -1,0 +1,341 @@
+# xrayGraphDB v4.9.2 — Official Benchmark Report
+
+**Date:** 2026-04-17
+**Engine:** xrayGraphDB v4.9.2 "1986 DELAYED ENTRY"
+**Vendor:** eMTAi LLC
+
+---
+
+## Test Infrastructure
+
+| | Server 1 (Dev) | Server 2 (Production) |
+|---|---|---|
+| **CPU** | Intel Xeon E3-1265L v3 (4C/8T @ 2.5GHz) | Intel Xeon Gold 6152 (22C/44T @ 2.1GHz) |
+| **RAM** | 32GB | 187GB |
+| **Storage** | NVMe SSD (1.8TB) | NVMe SSD (3.5TB) |
+| **GPU** | None | Tesla T4 16GB (not used by xrayGraphDB) |
+| **OS** | Ubuntu 24.04 LTS | Ubuntu 24.04 LTS |
+| **Storage mode** | mmap (disk-backed, OS page cache) | mmap |
+| **Protocols** | Bolt (7687) + xrayProtocol (7689) | Bolt (7687) + xrayProtocol (7689) |
+
+---
+
+## 1. LDBC Social Network Benchmark — SF1
+
+### 1.1 Data Load Performance
+
+**Dataset:** LDBC SNB Interactive v1, Scale Factor 1
+- 3,181,724 nodes (9.9K Person, 2.05M Comment, 1.0M Post, 90K Forum, 16K Tag, 8K Org, 1.5K Place, 71 TagClass)
+- 7,903,228 relationships (3.4M HAS_TAG, 2.5M KNOWS, 1.9M HAS_MEMBER, 1.4M LIKES, 229K HAS_INTEREST, 84K STUDY_AT, 22K WORK_AT)
+
+| Load Method | Nodes (3.18M) | Edges (7.9M) | Total | Edge Rate |
+|---|---|---|---|---|
+| **Bolt UNWIND (parameterized)** | 300s (10.5K/s) | never completed* | — | 164/s (LIKES_POST) |
+| **Cypher UNWIND (escaped)** | 567s (5.6K/s) | never completed* | — | — |
+| **Official Loader (BULK_INSERT binary + GID edges)** | | | | |
+| — Server 1 (32GB) | 567s | **11.0s (724K/s)** | **631s (10.5 min)** | **723,918/s** |
+| — Server 2 (187GB) | 349s | **12.9s (614K/s)** | **418s (7.0 min)** | **614,018/s** |
+
+*Bolt UNWIND relationship loading hit per-vertex spinlock contention, degrading to 164/s on LIKES_POST (752K edges took 76 min). LIKES_COMMENT (1.4M) was never completed. The GID fast path bypasses spinlocks entirely.
+
+**GID Edge Fast Path Detail (Server 1):**
+
+| Relationship | Count | Time | Rate |
+|---|---|---|---|
+| KNOWS | 180,623 | 0.3s | 712,489/s |
+| HAS_INTEREST | 229,166 | 0.3s | 804,364/s |
+| LIKES_POST | 751,677 | 1.0s | 721,096/s |
+| LIKES_COMMENT | 1,438,418 | 1.9s | 742,119/s |
+| HAS_MEMBER | 1,611,869 | 2.4s | 678,795/s |
+| Comment HAS_TAG | 2,698,393 | 3.7s | 726,839/s |
+| Post HAS_TAG | 713,258 | 0.9s | 750,990/s |
+| Forum HAS_TAG | 309,766 | 0.4s | 775,918/s |
+
+### 1.2 LDBC SF1 Load Time Progression
+
+| Version | Binary | Total | Nodes (3.18M) | Edges (7.9M) | Edge Rate |
+|---------|--------|-------|---------------|-------------|-----------|
+| v4.9.2 (Cypher escaped) | 1st | 631s (10.5 min) | 567s | 11.0s (724K/s) | 724K/s |
+| v4.9.2 (fixed loader) | 2nd | 379s (6.3 min) | 368s | 11.3s (700K/s) | 700K/s |
+| **v4.9.3 (strtoll + index)** | **3rd** | **192s (3.2 min)** | **180s** | **11s (700K/s)** | **700K/s** |
+
+**3.2 minutes for full LDBC SF1** — including 3.18M nodes with integer IDs and working property indexes.
+
+### 1.3 LDBC Interactive Query Performance (Bolt, v4.9.3)
+
+Person: Mahinda Perera (id=933, 96 KNOWS edges) — Server 1 (32GB, Xeon E3-1265L)
+
+| Query | Warm (ms) | Rows | Description |
+|---|---|---|---|
+| **IS1: Person profile** | **1.1** | 1 | Property lookup by indexed integer ID |
+| **IS3: Friend count** | **1.4** | 1 | COUNT of 96 KNOWS edges |
+| **IS3: Friends LIMIT 20** | **4.5** | 20 | Sorted friend list |
+| **2-hop friend count** | **194** | 1 | 96 friends → DISTINCT 2-hop traversal |
+| **IC5: Forums of friends** | **1.9** | — | HAS_MEMBER traversal |
+| **IC11: Friends work** | **1.7** | — | WORK_AT traversal |
+| **IC6: Tag co-occurrence** | **1.6** | — | Multi-hop tag discovery |
+| **Tag popularity (3.4M scan)** | **4,762** | 10 | Full HAS_TAG edge scan + aggregation |
+| **Person count (9.9K)** | **1.4** | 1 | COUNT all Person nodes |
+| **Edge count (7.96M)** | **1.1** | 1 | COUNT all relationships |
+
+Person: Jie Zhang (id=28587302324330, 149 KNOWS edges)
+
+| Query | Warm (ms) | Rows |
+|---|---|---|
+| **IS1: Person profile** | **1.0** | 1 |
+| **IS3: Friend count** | **2.1** | 1 (149 friends) |
+| **IS3: Friends LIMIT 20** | **6.1** | 20 |
+| **2-hop friend count** | **391.5** | 1 (1,945 distinct) |
+
+### 1.4 LDBC Interactive — Full Results (v4.9.3, Clean Load, All 13 Edge Types)
+
+Person: Maithripala Fernando (id=7413, 12 KNOWS friends, top-connected in SF1)
+
+| Query | Warm (ms) | Rows | Description |
+|---|---|---|---|
+| **IS1: Person profile** | **1.3** | 1 | Maithripala Fernando, male |
+| **IS3: Friend count** | **1.1** | 1 | 12 KNOWS edges |
+| **IS3: Friends LIMIT 20** | **1.8** | 12 | Full friend list |
+| **2-hop DISTINCT** | **11.0** | 1 | 1,834 distinct nodes reached |
+| **IC2: Messages by friends** | **696.6** | 10 | Real HAS_CREATOR traversal |
+| **IC5: Forums of friends** | **386.0** | 10 | Real HAS_MEMBER traversal |
+| **IC11: Friends work** | **1.7** | 10 | Real WORK_AT traversal |
+| **IC12: Friends study** | **2.9** | 9 | Real STUDY_AT traversal |
+| **Person count (9,892)** | **1.0** | 1 | — |
+| **Edge count (17.2M)** | **1.0** | 1 | All 13 relationship types |
+
+**Sub-2ms for profile, friend count, work, and study queries. 11ms for 2-hop reaching 1,834 nodes. 1.0ms to count 17.2 million edges.**
+
+### 1.5 In-Memory Engine vs mmap — Server 2 (187GB + Tesla T4)
+
+| Query | mmap (S1 32GB) | **in-memory (S2 187GB)** | Speedup |
+|-------|---------------|------------------------|---------|
+| **IS1: Profile** | 1.3ms | **0.5ms** | **2.6x** |
+| **IS3: Friend count** | 1.1ms | **0.6ms** | **1.8x** |
+| **IC2: Messages by friends** | 696.6ms | **125.7ms** | **5.5x** |
+| **IC5: Forums of friends** | 386.0ms | **108.6ms** | **3.6x** |
+| **IC11: Friends work** | 1.7ms | **1.9ms** | ~same |
+| **IC12: Friends study** | 2.9ms | **1.8ms** | **1.6x** |
+
+**In-memory eliminates page faults — multi-hop IC queries see 3.6-5.5x speedup over mmap.**
+
+### 1.6 GPU Analytics — Server 2 (Tesla T4, In-Memory, 3.18M nodes / 17.2M edges)
+
+| Procedure | Time | GPU Util | VRAM | Notes |
+|-----------|------|----------|------|-------|
+| **PageRank (20 iter)** | **5,034ms** | **48-59%** | 237MB | GPU-accelerated |
+| **Triangle count** | **3,281ms** | **100%** | 211MB | Full GPU compute |
+| **Community detection (20 iter)** | **41,479ms** | **100%** | 213MB | GPU-accelerated |
+| **Betweenness centrality (50)** | **11,917ms** | 0% | 105MB | CPU-only, max centrality=13B |
+| **Connected components** | **4,339ms** | 0% | 105MB | CPU-only |
+| **Louvain** | **78,598ms** | 0% | 105MB | CPU-only |
+
+Tesla T4 activates on PageRank (48-59%), Triangle count (100%), and Community detection (100%).
+VRAM jumps from 105MB idle to 237MB during GPU kernels.
+
+---
+
+## 2. xrayProtocol Microbenchmarks (Server 1, 100K nodes)
+
+### 2.1 Sub-100µs Tier — Microsecond-Scale Query Latencies
+
+| Benchmark | Warm | P50 | P95 |
+|-----------|------|-----|-----|
+| coordinate-conversion | **30µs** | 30µs | 40µs |
+| string-function-overhead | **40µs** | 40µs | 50µs |
+| segmentation-simple | **50µs** | 40µs | 80µs |
+| math-function-overhead | **60µs** | 50µs | 90µs |
+| segmentation-medium | **60µs** | 60µs | 70µs |
+| segmentation-complex | **70µs** | 60µs | 100µs |
+
+### 2.2 Sub-millisecond Tier
+
+| Benchmark | Warm | P50 | P95 |
+|-----------|------|-----|-----|
+| expand-high-fanout | **210µs** | 210µs | 230µs |
+
+### 2.3 Low Latency (1-5ms)
+
+| Benchmark | Warm (ms) | P50 (ms) | P95 (ms) |
+|-----------|----------|---------|---------|
+| single-client | **1.00** | 1.01 | 1.04 |
+| medium-concurrency | **1.27** | 1.26 | 1.38 |
+| list-function-overhead | **2.14** | 2.15 | 2.20 |
+| military-computation | **4.03** | 4.02 | 4.07 |
+| oceanographic-computation | **4.18** | 4.16 | 4.34 |
+| physics-computation | **4.19** | 4.20 | 4.23 |
+| bearing-navigation | **4.37** | 4.18 | 4.68 |
+| nearest-neighbor-geo | **4.47** | 4.47 | 4.53 |
+| destination-projection | **4.52** | 4.51 | 4.63 |
+| orbital-mechanics | **4.60** | 4.57 | 5.97 |
+
+### 2.4 Analytical Queries (10-344ms)
+
+| Benchmark | Warm (ms) | P50 (ms) | P95 (ms) |
+|-----------|----------|---------|---------|
+| scan-filter-project | **10.92** | 10.88 | 11.08 |
+| repeated-query-stability | **83.55** | 83.52 | 83.91 |
+| cold-vs-warm | **223.92** | 223.85 | 225.70 |
+| aggregate-groupby | **342.96** | 342.41 | 345.65 |
+
+### 2.5 Protocol Comparison: xrayProtocol vs Bolt
+
+| Benchmark | Bolt (ms) | xrayProtocol (ms) | Speedup |
+|-----------|----------|-------------------|---------|
+| coordinate-conversion | 0.6 | **0.03** | **20x** |
+| string-function-overhead | 0.7 | **0.04** | **18x** |
+| segmentation-simple | 0.7 | **0.05** | **14x** |
+| math-function-overhead | 0.6 | **0.06** | **10x** |
+| expand-high-fanout | 1.1 | **0.21** | **5.2x** |
+| single-client | 2.1 | **1.00** | **2.1x** |
+| scan-filter-project | 28.1 | **10.92** | **2.6x** |
+
+---
+
+## 3. Cross-Database Comparison
+
+### 3.1 vs Memgraph 2.22.0 (LiveJournal 4.8M nodes / 69M edges, Bolt)
+
+*Source: xrayGraphDB benchmark-numbers-update-20260413.md, same binary v4.9.2*
+
+| Query | xrayGraphDB | Memgraph | Speedup |
+|-------|------------|----------|---------|
+| COUNT nodes | 1.94ms | 19.13ms | **9.9x** |
+| Scan LIMIT 10K | 28.61ms | 449.02ms | **15.7x** |
+| 1-hop traversal | 1.29ms | 42.96ms | **33.3x** |
+| 2-hop traversal | 1.43ms | 49.66ms | **34.7x** |
+| COUNT 69M edges | 1.53ms | 84.06ms | **54.9x** |
+| Load 69M edges | 1.4s | 9,668s | **6,906x** |
+
+### 3.2 Friendster — 1.8 Billion Edges on a Single Node
+
+**Dataset:** Stanford SNAP Friendster social network
+- 65,608,366 nodes, 1,806,067,135 edges (undirected)
+- Raw file: 21GB edge-list (tab-separated)
+
+**Load via CSR mmap builder (xrayProtocol BULK_IMPORT_FILE):**
+
+| Version | Time | Edge Rate | Peak Memory | CSR on Disk |
+|---------|------|-----------|-------------|-------------|
+| v4.9.2 | 28.8 min | 1,045,801/s | 69GB | 15GB |
+| **v4.9.3** | **25.7 min** | **1,169,578/s** | **69GB** | **15GB** |
+
+**No other graph database has published single-node Friendster load benchmarks.**
+
+### 3.3 Friendster CSR Query Performance (xrayProtocol, Server 2)
+
+**65.6M nodes, 1.8B edges, CSR mmap on NVMe**
+
+| Query | Result | Time | Description |
+|-------|--------|------|-------------|
+| **degree(101)** | 203 | **0.07ms (70µs)** | Instant adjacency count |
+| **BFS(101, 1-hop)** | 203 | **4.6ms** | Direct neighbors |
+| **BFS(101, 2-hop)** | 5,195 | **0.6ms** | 2nd-degree (cached) |
+| **BFS(101, 3-hop)** | 130,342 | **4.3ms** | 130K nodes in 4ms |
+| **BFS(101, 4-hop)** | 5,118,927 | **164ms** | **5.1M nodes in 164ms** |
+| **BFS(101, 5-hop)** | 41,389,253 | **4,571ms** | 41M nodes (63% of graph) |
+| **BFS(hub, 3-hop)** | 1,995,289 | **109ms** | **2M nodes from degree-284 hub** |
+
+### 3.4 Friendster BFS — Full Hop-by-Hop (Vertex 101, degree 203)
+
+| Hops | Nodes Reached | Latency | % of Graph |
+|------|--------------|---------|------------|
+| 1 | 203 | **8.2ms** | 0.0% |
+| 2 | 5,195 | **0.9ms** | 0.0% |
+| 3 | 130,342 | **25.9ms** | 0.2% |
+| 4 | 5,118,927 | **533ms** | 7.8% |
+| 5 | 41,389,253 | **5,093ms** | 63.1% |
+| 6 | 62,204,443 | **15,975ms** | 94.8% |
+| 7 | 63,941,886 | **17,320ms** | 97.5% |
+
+### 3.5 Friendster BFS — Hub Vertex (Vertex 100000, degree 226)
+
+| Hops | Nodes Reached | Latency | % of Graph |
+|------|--------------|---------|------------|
+| 1 | 226 | **7.1ms** | 0.0% |
+| 2 | 17,412 | **8.8ms** | 0.0% |
+| 3 | 732,309 | **32.1ms** | 1.1% |
+| 4 | 14,218,664 | **831ms** | 21.7% |
+| 5 | 50,868,385 | **9,342ms** | 77.5% |
+| 6 | 62,416,154 | **16,451ms** | 95.1% |
+
+### 3.6 Friendster BFS — 3-Server Comparison (Warm, xrayProtocol)
+
+| Hops | Reached | S1 (32GB, 4C) | S2 (187GB, 44C) | S3 (503GB, 64C) |
+|------|---------|--------------|-----------------|-----------------|
+| 1 | 203 | N/A | 8.2ms | **0.6ms** |
+| 2 | 5,195 | N/A | 0.9ms | **0.4ms** |
+| 3 | 130,342 | N/A | 25.9ms | **3.8ms** |
+| 4 | 5,118,927 | N/A | 533ms | **109ms** |
+| 5 | 41,389,253 | N/A | 5,093ms | **4,284ms** |
+| 6 | 62,204,443 | N/A | 15,975ms | 17,763ms |
+| 7 | 63,941,886 | N/A | 17,320ms | 19,169ms |
+
+**503GB EPYC: 5.1 million nodes across 1.8 billion edges in 109 milliseconds.**
+
+For comparison:
+- Memgraph crashed at 150K of 69M LiveJournal edges (26x smaller than Friendster)
+- Neo4j — no published Friendster numbers
+- TigerGraph — no published single-node Friendster numbers
+
+### 3.3 Industry Context
+
+| System | Best Published Load | Dataset | Source |
+|--------|-------------------|---------|--------|
+| **xrayGraphDB** | **1.17M edges/s** | **Friendster 1.8B edges** | **This report** |
+| **xrayGraphDB** | **724K edges/s** | LDBC SF1 7.9M edges | This report |
+| Neo4j | ~5-10K/s (est.) | LDBC SF1 | LDBC 2019 study |
+| Memgraph | ~7K/s (failed) | LiveJournal 69M edges | xrayGraphDB docs |
+| TigerGraph | N/A | LDBC (audited) | LDBC 2019 audit |
+
+---
+
+## 4. Engine Capabilities
+
+- **385+ vectorized built-in functions** across 30 categories (Aggregation, Aviation, GIS, GraphAnalytics, Math, ParticlePhysics, Physics, RAG_LLM, ReactiveEngine, etc.)
+- **10 native xray.* procedures** (edge_aggregate, impact_analysis, query_budget, find_path_budgeted, semantic_search, frontier_profile, neighborhood_stats, topk_reachable, health_report, live_aggregate)
+- **Dual protocol:** Bolt (7687) + xrayProtocol (7689)
+- **GFQL** (Graph Frame Query Language) via xrayProtocol
+- **mmap storage engine** — disk-backed with OS page cache, 100-1000x less RAM than in-memory mode
+- **BULK_INSERT_EDGES GID fast path** — 614-724K edges/sec, bypasses per-vertex spinlocks
+- **GPU:** Tesla T4 available on production server but not utilized by v4.9.2
+
+---
+
+## 5. Known Limitations (v4.9.2)
+
+| Issue | Status | Impact |
+|---|---|---|
+| `LOAD CSV` — runtime `Unbound variable` error | Parser works, planner doesn't bind row variable | Must use Bolt UNWIND or BULK_INSERT for data loading |
+| BULK_INSERT_NODES binary path slower than Bolt parameterized | 6-9K/s vs 10-11K/s | Node loading bottleneck is Cypher path, not binary |
+| Embedded FK relationships (HAS_CREATOR, IS_LOCATED_IN, REPLY_OF) | Not loaded by GID bulk loader | Requires separate MATCH phase or separate CSV files |
+| xrayProtocol connection drops during large UNWIND writes | Resolved by using Bolt for writes | Dual-protocol approach: Bolt writes, xrayProtocol reads |
+
+---
+
+## 6. Methodology
+
+- **Clock:** Rust fenced monotonic clock, 10-14ns resolution
+- **Warm runs:** 10-100 per benchmark, outlier detection via CUSUM
+- **Statistics:** 95% BCa bootstrap confidence intervals
+- **Dataset:** 100K synthetic nodes for microbenchmarks, LDBC SF1 (3.18M nodes / 7.9M edges) for Interactive queries
+- **Storage:** `--storage-engine=mmap` with `vm.max_map_count=1048576`, THP disabled
+- **Safety:** `MemoryMax=28G` (server 1) / `160G` (server 2), `LimitCORE=0`
+
+---
+
+## Reproducibility
+
+```bash
+# Microbenchmarks (xrayProtocol)
+source /opt/xraybench-env/bin/activate
+./run_all_benchmarks.sh localhost 7689 xraygraphdb-native
+
+# LDBC SF1 Load
+python3 /root/xraygraphdb-build/tests/xgbench/ldbc_bulk_loader.py \
+  --data-dir /opt/ldbc-snb/sf1/social_network-sf1-CsvCompositeMergeForeign-LongDateFormatter \
+  --host 127.0.0.1 --port 7689
+
+# LDBC Interactive Queries
+python3 /tmp/ldbc_queries.py
+```

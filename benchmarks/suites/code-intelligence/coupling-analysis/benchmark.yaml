@@ -1,0 +1,73 @@
+name: coupling-analysis
+family: code-intelligence
+version: "1.0.0"
+tier: B
+status: published
+query_language: cypher
+description: >
+  Measures the performance of xray.coupling() — a native procedure that
+  identifies tightly coupled modules by analyzing cross-module call and
+  import relationships. Coupling scores quantify how interdependent two
+  modules are, enabling architects to spot problematic dependencies.
+  Sorting by coupling_score DESC surfaces the most entangled module pairs.
+
+dataset:
+  name: synthetic-code-graph
+  type: code-graph
+  generator: code_graph
+  generator_params:
+    file_count: 5000
+    class_count: 15000
+    function_count: 100000
+    avg_calls_per_function: 4
+    avg_imports_per_file: 8
+    seed: 42
+
+query_template: >
+  CALL xray.coupling()
+  YIELD module_a, module_b, coupling_score
+  RETURN module_a, module_b, coupling_score
+  ORDER BY coupling_score DESC
+  LIMIT $limit
+
+parameters:
+  limit:
+    type: integer
+    default: 50
+    min: 1
+    max: 10000
+    description: >
+      Maximum number of module pairs to return, ordered by descending
+      coupling score.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 1
+  expected_row_count_max: 10000
+  expected_columns: [module_a, module_b, coupling_score]
+  description: >
+    Returns up to $limit rows. Each row is a pair of modules with their
+    coupling score. On a code graph with 5000 files, the number of
+    non-trivially coupled pairs depends on the cross-module call density.
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - rows_out
+  - segments
+
+tags:
+  - code-intelligence
+  - coupling
+  - architecture
+  - xray-procedure
+  - tier-b
+
+warm_runs: 10
+timeout_seconds: 300
+
+notes: >
+  Tier B — xrayGraphDB only. Other engines return UNSUPPORTED.
+  Module coupling analysis requires cross-referencing call edges with
+  module membership — a pattern that benefits from native graph-aware
+  aggregation.

@@ -1,0 +1,105 @@
+name: heavy-concurrency
+family: concurrency
+version: "1.0.0"
+tier: A
+status: published
+query_language: cypher
+description: >
+  Heavy concurrency stress test with 128 parallel clients issuing a mix of
+  query types — point lookups, neighbor expansions, and short aggregations.
+  This benchmark finds the engine's saturation point by pushing well beyond
+  typical connection pool sizes. Key signals are tail latency explosion
+  (p99 vs p50 ratio), error rate under load, and whether QPS plateaus or
+  degrades. Engines with adaptive thread pools, work-stealing schedulers,
+  or cooperative multitasking should maintain sub-linear degradation. Engines
+  with coarse-grained locks or limited connection handling will show sharp
+  QPS cliffs and elevated error rates.
+
+citation: >
+  High-concurrency stress testing follows the methodology of LDBC SNB
+  Interactive driver (2021) and the TPC-C "ramp" pattern where client count
+  is increased until throughput saturates. The 128-client level represents
+  a heavily loaded production scenario or a burst traffic spike.
+
+dataset:
+  name: synthetic-powerlaw-100k
+  type: synthetic
+  generator: powerlaw_graph
+  generator_params:
+    node_count: 100000
+    edge_count: 500000
+    exponent: 2.5
+    label: N
+    edge_type: E
+    seed: 42
+
+query_template: >
+  MATCH (n:N)
+  WHERE n.id = $target_id
+  RETURN n.id
+
+parameters:
+  clients:
+    type: integer
+    default: 128
+    min: 32
+    max: 512
+    description: >
+      Number of concurrent client threads. At 128, most engines will be near
+      or past their optimal concurrency window. Increasing further identifies
+      the degradation curve.
+  iterations_per_client:
+    type: integer
+    default: 200
+    min: 50
+    max: 10000
+    description: >
+      Number of queries each client executes. Total queries = clients *
+      iterations_per_client (default: 25600). Kept lower than medium to
+      bound total runtime under heavy contention.
+  query_mix:
+    type: string
+    default: "lookup:60,expand:30,aggregate:10"
+    description: >
+      Weighted query type distribution as colon-separated type:weight pairs
+      separated by commas. Types: lookup (point query by id), expand (1-hop
+      neighbor fetch), aggregate (count neighbors). Weights are relative and
+      normalized to 100%. The default mix emphasizes lookups with moderate
+      expansion and light aggregation.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 0
+  expected_row_count_max: 10000
+  expected_columns: [id]
+  description: >
+    Result row count varies by query type in the mix. Point lookups return
+    0-1 rows, expansions return 0-N rows, aggregations return 1 row. The
+    range is intentionally wide to accommodate all query types. Correctness
+    under concurrency is the primary concern — no data corruption, no
+    connection errors beyond the measured error_rate.
+
+metrics:
+  - qps
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  - concurrency
+
+tags:
+  - concurrency
+  - heavy
+  - stress-test
+  - saturation
+  - mixed-workload
+  - tail-latency
+  - error-rate
+
+warm_runs: 3
+timeout_seconds: 900
+notes: >
+  Monitor system resources (CPU, memory, file descriptors) during execution.
+  If error_rate exceeds 5%, the engine has likely hit a connection limit or
+  thread exhaustion. Compare p99/p50 ratio against the medium-concurrency
+  benchmark to quantify tail latency amplification under load.

@@ -1,0 +1,97 @@
+name: destination-projection
+family: geometric
+version: "1.0.0"
+tier: B
+status: published
+query_language: cypher
+description: >
+  Tests xrayGraphDB's built-in geo.destination(lat, lon, bearing_deg, distance_m)
+  function, which projects a new geographic coordinate from each node by traveling
+  a given distance along a specified bearing. This is the inverse geodetic problem
+  solved natively in Cypher. Typical use cases include range ring expansion,
+  signal propagation modeling, logistics routing, and drone path planning. The
+  benchmark measures throughput when projecting 100K+ nodes simultaneously.
+  No other graph database provides a native destination-point projection function.
+
+  Dataset: synthetic geographic points distributed globally with lat/lon
+  properties representing tracked assets, sensors, or infrastructure nodes.
+
+dataset:
+  name: synthetic-geo-points
+  type: synthetic
+  generator: uniform_nodes
+  generator_params:
+    node_count: 100000
+    node_label: GeoPoint
+    properties:
+      id: integer
+      lat: float
+      lon: float
+    seed: 42
+
+query_template: >
+  MATCH (n:GeoPoint)
+  WITH n,
+       geo.destination(n.lat, n.lon, $bearing, $distance_m) AS projected
+  RETURN n.id,
+         projected[0] AS proj_lat,
+         projected[1] AS proj_lon
+  LIMIT $limit
+
+parameters:
+  bearing:
+    type: float
+    default: 90.0
+    min: 0.0
+    max: 360.0
+    description: >
+      Bearing in degrees clockwise from north along which to project each point.
+      Default 90.0 = due east.
+  distance_m:
+    type: float
+    default: 100000.0
+    min: 1.0
+    max: 20000000.0
+    description: >
+      Distance in meters to project from each source node. Default 100 km.
+  limit:
+    type: integer
+    default: 1000
+    min: 1
+    max: 100000
+    description: >
+      Maximum number of projected points to return.
+
+correctness_oracle:
+  type: row_count_range
+  expected_row_count_min: 1
+  expected_row_count_max: 1000
+  expected_columns:
+    - "n.id"
+    - proj_lat
+    - proj_lon
+  description: >
+    Must return exactly limit rows (capped by dataset size). Each row contains
+    the source node ID and the projected latitude/longitude pair. Projected
+    coordinates must be within valid WGS-84 bounds (-90 to 90 lat, -180 to 180 lon).
+
+metrics:
+  - cold_ms
+  - warm_ms
+  - rows_out
+
+tags:
+  - geometric
+  - projection
+  - destination
+  - tier-b
+
+warm_runs: 20
+timeout_seconds: 120
+
+notes: >
+  Tier B — xrayGraphDB only. Other engines return UNSUPPORTED. geo.destination
+  implements Vincenty's direct formula on the WGS-84 ellipsoid, returning a
+  [lat, lon] list. Applications include radar coverage modeling, ship dead
+  reckoning, and geofence expansion. Neo4j, Memgraph, and Neptune have no
+  equivalent native function.
