@@ -162,15 +162,21 @@
         <div class="section-line" aria-hidden="true"></div>
         <h2 class="section-title">Up and Running in <span class="gradient-text">30 Seconds</span></h2>
         <p class="section-subtitle">
-          One command. Two protocols. Full engine.
+          One command. Native xrayProtocol. Full engine.
         </p>
         <div class="docker-oneliner">
           <div class="code-block">
             <pre><span class="cmd">docker</span> run <span class="flag">-d</span> <span class="flag">--name</span> xraygraphdb \
-  <span class="flag">-p</span> <span class="num">7687</span>:<span class="num">7687</span> <span class="flag">-p</span> <span class="num">7689</span>:<span class="num">7689</span> \
-  <span class="flag">-e</span> XRAY_ADMIN_PASSWORD=<span class="str">your-secure-password</span> \
-  xraygraphdb:<span class="num">v4.9.4</span></pre>
+  <span class="flag">-p</span> <span class="num">7689</span>:<span class="num">7689</span> \
+  <span class="flag">-v</span> xraygraphdb-data:/var/lib/xraygraphdb \
+  xraygraphdb.emtailabs.com/xraygraphdb:<span class="num">v4.9.4</span> \
+  <span class="flag">--license-acknowledge-saved</span>=<span class="str">true</span> \
+  <span class="flag">--init-admin-user</span>=<span class="str">admin</span> <span class="flag">--init-admin-password</span>=<span class="str">your-secure-password</span></pre>
           </div>
+          <p style="text-align: center; color: #888; font-size: 0.8rem; margin-top: 10px;">
+            The <code>--init-admin-*</code> flags create the admin on first run only.
+            <a href="docs.html#install-docker" style="color: #ff6b00;">Recreate without them</a> after the daemon is up so the password isn't sitting in <code>docker inspect</code>.
+          </p>
         </div>
         <div style="text-align: center; margin-top: 20px;">
           <a href="docs.html" class="btn btn-outline" style="font-size: 0.9rem; padding: 10px 24px;">View all install methods &rarr;</a>
