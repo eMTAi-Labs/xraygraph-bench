@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Why xrayGraphDB - Per-Tenant Encryption, Patent-Pending Engine, Dual Query Language</title>
+  <meta name="description" content="xrayGraphDB is the only graph database with per-tenant cryptographic isolation, a patent-pending execution engine, and dual Cypher + GFQL query support.">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Why xrayGraphDB - The Differentiation">
+  <meta property="og:description" content="Per-tenant encryption, patent-pending engine, Cypher + GFQL. No other graph database offers this combination.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://xraygraphdb.emtailabs.com/why.html">
+
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x1F9EC;</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ============================== NAV ============================== -->
+  <nav class="nav" role="navigation" aria-label="Main navigation">
+    <div class="container nav-inner">
+      <a href="index.html" class="nav-logo">xray<span>GraphDB</span></a>
+      <ul class="nav-links">
+        <li><a href="why.html" class="nav-active">Why xrayGraphDB</a></li>
+        <li><a href="benchmarks.html">Benchmarks</a></li>
+        <li><a href="docs.html">Docs</a></li>
+        <li><a href="demos.html">Demos</a></li>
+        <li><a href="pricing.html">Pricing</a></li>
+        <li><a href="/llms-full.txt" title="Single-file AI-agent reference (plain text, optimized for LLMs to read end-to-end)" style="color:#00ff88; border:1px solid #00ff88; padding:4px 10px; border-radius:6px; font-weight:600;">&#x1F916; Point AI Here</a></li>
+        <li><a href="https://emtai-xray.emtailabs.com" class="nav-cta">Get Licensed</a></li>
+      </ul>
+      <button class="nav-toggle" aria-label="Toggle navigation menu" onclick="document.getElementById('mobile-menu').classList.toggle('open')">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="mobile-menu" class="nav-mobile">
+      <a href="why.html" onclick="this.parentElement.classList.remove('open')">Why xrayGraphDB</a>
+      <a href="benchmarks.html" onclick="this.parentElement.classList.remove('open')">Benchmarks</a>
+      <a href="docs.html" onclick="this.parentElement.classList.remove('open')">Docs</a>
+      <a href="demos.html" onclick="this.parentElement.classList.remove('open')">Demos</a>
+      <a href="pricing.html" onclick="this.parentElement.classList.remove('open')">Pricing</a>
+      <a href="/llms-full.txt" onclick="this.parentElement.classList.remove('open')" style="color:#00ff88; font-weight:600;">&#x1F916; Point AI Here</a>
+      <a href="https://emtai-xray.emtailabs.com">Get Licensed</a>
+    </div>
+  </nav>
+
+  <!-- ============================== MAIN CONTENT ============================== -->
+  <main id="page-content">
+
+    <!-- ============================== ENCRYPTION (HERO) ============================== -->
+    <section class="why-hero" id="encryption">
+      <div class="container">
+        <div class="why-badge">&#x1F6E1; Industry First</div>
+        <h1 style="font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 900; margin-bottom: 16px;">
+          Per-Tenant <span class="gradient-text">Cryptographic Isolation</span>
+        </h1>
+        <p class="section-subtitle" style="margin-bottom: 48px;">
+          Every other graph database uses namespace filtering. xrayGraphDB gives each tenant its own
+          cryptographic boundary through a patent-pending isolation architecture. This is cryptographic
+          isolation, not access-control theater.
+        </p>
+
+        <div class="why-grid">
+          <div class="why-detail">
+            <h3>What This Means in Practice</h3>
+            <ul class="why-list">
+              <li>
+                <span class="why-list-icon">&#10003;</span>
+                <span>A database admin with root access to Tenant A cannot decrypt Tenant B's data &mdash; even with a disk image</span>
+              </li>
+              <li>
+                <span class="why-list-icon">&#10003;</span>
+                <span>Cloning a volume to another machine yields unreadable ciphertext</span>
+              </li>
+              <li>
+                <span class="why-list-icon">&#10003;</span>
+                <span>Key rotation per tenant without downtime</span>
+              </li>
+              <li>
+                <span class="why-list-icon">&#10003;</span>
+                <span>Meets FIPS 140-2, SOC 2 Type II, and HIPAA encryption requirements</span>
+              </li>
+            </ul>
+          </div>
+          <div class="why-detail">
+            <h3>Multi-Layered Defense</h3>
+            <p>
+              Multiple interlocking security layers designed together &mdash; integrity verification, per-tenant encryption,
+              cryptographic signatures, anti-cloning protections, and secrets management integration. Not a single layer bolted on after the fact.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================== ENGINE ============================== -->
+    <section class="why-section" id="engine">
+      <div class="container">
+        <div class="section-line" aria-hidden="true"></div>
+        <h2 class="section-title">Purpose-Built <span class="gradient-text">Architecture</span></h2>
+        <p class="section-subtitle">
+          Designed from the ground up for multi-tenant, AI-native workloads. The execution engine, planner,
+          storage layer, and wire protocol are all original eMTAi engineering &mdash; patent pending.
+        </p>
+
+        <div class="why-grid">
+          <div class="why-detail">
+            <h3>Built for Speed</h3>
+            <ul class="why-list">
+              <li><span class="why-list-icon">&#10003;</span><span><strong>Patent-pending execution engine</strong> &mdash; designed for high-throughput analytical workloads</span></li>
+              <li><span class="why-list-icon">&#10003;</span><span><strong>xrayProtocol</strong> &mdash; patent-pending native wire format, 24x faster than legacy protocols</span></li>
+              <li><span class="why-list-icon">&#10003;</span><span><strong>Patent-pending storage</strong> &mdash; zero-indirection reads through a proprietary access layer</span></li>
+              <li><span class="why-list-icon">&#10003;</span><span><strong>GPU acceleration</strong> &mdash; optional hardware dispatch for analytics workloads</span></li>
+              <li><span class="why-list-icon">&#10003;</span><span><strong>Plan cache</strong> &mdash; 425x speedup on repeated queries</span></li>
+              <li><span class="why-list-icon">&#10003;</span><span><strong>Predictable latency</strong> &mdash; deterministic memory management, no stop-the-world pauses</span></li>
+            </ul>
+          </div>
+          <div class="why-detail">
+            <h3>Measured Results</h3>
+            <ul class="why-list">
+              <li><span class="why-list-icon">&#10003;</span><span><strong>0.1ms</strong> warm query latency</span></li>
+              <li><span class="why-list-icon">&#10003;</span><span><strong>0.3ms</strong> point lookup on 17M+ edges</span></li>
+              <li><span class="why-list-icon">&#10003;</span><span><strong>100K+</strong> nodes/sec bulk ingest</span></li>
+              <li><span class="why-list-icon">&#10003;</span><span><strong>1.8B edges</strong> on commodity hardware</span></li>
+            </ul>
+            <p style="margin-top: 16px;">
+              <a href="benchmarks.html" class="btn btn-outline" style="font-size: 0.9rem; padding: 8px 20px;">See full benchmarks &rarr;</a>
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================== QUERY ============================== -->
+    <section class="why-section" id="query">
+      <div class="container">
+        <div class="section-line" aria-hidden="true"></div>
+        <h2 class="section-title">Cypher + GFQL + <span class="gradient-text">Neo4j Compatibility</span></h2>
+        <p class="section-subtitle">
+          Write Cypher as you know it. Use GFQL when dataframe-native syntax fits better.
+          Neo4j-specific queries work automatically with zero changes. Dual-language support is patent pending.
+        </p>
+
+        <div class="why-grid" style="margin-bottom: 48px;">
+          <div class="why-detail">
+            <h3>Full Cypher with Neo4j Syntax Rewrites</h3>
+            <p>
+              xrayGraphDB automatically detects and rewrites Neo4j-specific syntax to standard Cypher,
+              so applications migrating from Neo4j work without code changes.
+            </p>
+            <ul class="why-list">
+              <li>
+                <span class="why-list-icon">&#10003;</span>
+                <span><strong>CREATE INDEX</strong> &mdash; Neo4j's <code class="inline">CREATE INDEX FOR</code> syntax auto-detected</span>
+              </li>
+              <li>
+                <span class="why-list-icon">&#10003;</span>
+                <span><strong>SHOW PROCEDURES</strong> &mdash; returns xrayGraphDB procedures in Neo4j-compatible format</span>
+              </li>
+              <li>
+                <span class="why-list-icon">&#10003;</span>
+                <span><strong>shortestPath()</strong> &mdash; native traversal implementation</span>
+              </li>
+              <li>
+                <span class="why-list-icon">&#10003;</span>
+                <span><strong>Bolt v5</strong> &mdash; full protocol compatibility with Neo4j 5.x drivers</span>
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <div class="code-block" style="border-radius: var(--radius-lg); border: 1px solid var(--border-subtle);">
+              <div class="code-block-header">
+                <span class="code-block-lang">Cypher</span>
+              </div>
+              <pre style="padding: 24px;">
+<span class="cmt">// Works identically to Neo4j</span>
+<span class="kw">CREATE INDEX</span> function_name_idx
+<span class="kw">FOR</span> (n:Function) <span class="kw">ON</span> (n.name);
+
+<span class="cmt">// Neo4j-compatible procedure listing</span>
+<span class="kw">SHOW PROCEDURES</span>;
+
+<span class="cmt">// Native shortest path</span>
+<span class="kw">MATCH</span> p = <span class="fn">shortestPath</span>(
+  (a:Function {name: <span class="str">"main"</span>})
+  -[:CALLS*..10]-&gt;
+  (b:Function {name: <span class="str">"render"</span>})
+)
+<span class="kw">RETURN</span> p;</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="why-grid" style="margin-bottom: 48px;">
+          <div>
+            <div class="code-block" style="border-radius: var(--radius-lg); border: 1px solid var(--border-subtle);">
+              <div class="code-block-header">
+                <span class="code-block-lang">GFQL</span>
+              </div>
+              <pre style="padding: 24px;">
+<span class="cmt">// GFQL: Graph Frame Query Language</span>
+<span class="cmt">// Dataframe-native graph queries</span>
+
+<span class="kw">SET</span> GFQL_CONTEXT tenant=<span class="str">'acme-corp'</span>;
+
+<span class="kw">FROM</span> nodes(label=<span class="str">'Function'</span>)
+  .<span class="fn">filter</span>(complexity &gt; <span class="num">10</span>)
+  .<span class="fn">hop</span>(edge_type=<span class="str">'CALLS'</span>, depth=<span class="num">3</span>)
+  .<span class="fn">groupby</span>(<span class="str">'module'</span>)
+  .<span class="fn">agg</span>(count=<span class="fn">count</span>(), avg_cx=<span class="fn">avg</span>(<span class="str">'complexity'</span>))
+  .<span class="fn">sort</span>(<span class="str">'avg_cx'</span>, desc=<span class="kw">true</span>)
+  .<span class="fn">limit</span>(<span class="num">20</span>);</pre>
+            </div>
+          </div>
+
+          <div class="why-detail">
+            <h3>GFQL as a First-Class Citizen</h3>
+            <p>
+              GFQL is a native query language for data scientists who think in dataframes.
+              Multi-hop traversals, aggregation, and filtering in a composable pipeline syntax.
+            </p>
+            <ul class="why-list">
+              <li>
+                <span class="why-list-icon">&#10003;</span>
+                <span><strong>Tenant-scoped sessions</strong> &mdash; automatic isolation per context</span>
+              </li>
+              <li>
+                <span class="why-list-icon">&#10003;</span>
+                <span><strong>Multi-hop traversals</strong> &mdash; depth control and edge filtering</span>
+              </li>
+              <li>
+                <span class="why-list-icon">&#10003;</span>
+                <span><strong>Aggregation</strong> &mdash; groupby, count, avg, min, max on result sets</span>
+              </li>
+              <li>
+                <span class="why-list-icon">&#10003;</span>
+                <span><strong>Composable</strong> &mdash; chain operations in a single expression</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="why-grid">
+          <div class="why-detail">
+            <h3>346 Functions <span style="color:var(--accent-2,#9d6bff);">&middot;</span> 90+ Native Procedures</h3>
+            <p>
+              The largest native function and procedure library of any graph database &mdash; patent pending.
+              <strong>346 built-in functions</strong> covering strings, math, temporal, lists, maps, vectors,
+              and graph traversal, plus <strong>90+ native procedures</strong> for analytics, code intelligence,
+              and reachability &mdash; all running inside the engine, with optional GPU acceleration.
+            </p>
+            <ul class="why-list">
+              <li><span class="why-list-icon">&#10003;</span><span>Graph ranking &amp; community: <code>pagerank</code>, <code>louvain</code>, <code>kcore</code>, <code>hits</code>, <code>connected_components</code></span></li>
+              <li><span class="why-list-icon">&#10003;</span><span>Centrality &amp; reachability: <code>betweenness_centrality</code> (4 variants), <code>find_path_*</code>, <code>frontier_profile</code>, <code>topk_reachable</code></span></li>
+              <li><span class="why-list-icon">&#10003;</span><span>Code intelligence: <code>dead_code</code>, <code>complexity</code>, <code>security</code>, <code>hotspots</code>, <code>coupling</code>, <code>flow_trace</code>, <code>debt</code>, <code>ownership</code></span></li>
+              <li><span class="why-list-icon">&#10003;</span><span>ML / vectors: <code>embed</code> (native ONNX), <code>node2vec</code>, <code>semantic_search</code>, <code>cosine_similarity</code></span></li>
+            </ul>
+          </div>
+
+          <div class="why-detail">
+            <h3>EMBED() for Vector Operations</h3>
+            <p>
+              Native vector embedding support directly in query expressions. Store, index, and query
+              high-dimensional vectors without external plugins or separate systems.
+            </p>
+            <div class="code-block" style="border-radius: var(--radius-md); border: 1px solid var(--border-subtle); margin-top: 16px;">
+              <pre style="padding: 20px;">
+<span class="cmt">// Store embedding on a node</span>
+<span class="kw">MATCH</span> (f:Function {name: <span class="str">"parse"</span>})
+<span class="kw">SET</span> f.embedding = <span class="fn">EMBED</span>(<span class="str">"function that
+  parses input tokens"</span>);
+
+<span class="cmt">// Find semantically similar functions</span>
+<span class="kw">MATCH</span> (f:Function)
+<span class="kw">WHERE</span> <span class="fn">cosine_similarity</span>(
+  f.embedding,
+  <span class="fn">EMBED</span>(<span class="str">"parsing logic"</span>)
+) &gt; <span class="num">0.85</span>
+<span class="kw">RETURN</span> f.name, f.module;</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================== DESIGNED FOR ============================== -->
+    <section class="why-section" id="designed-for">
+      <div class="container">
+        <div class="section-line" aria-hidden="true"></div>
+        <h2 class="section-title">Designed <span class="gradient-text">For</span></h2>
+        <p class="section-subtitle">
+          xrayGraphDB is purpose-built for workloads where relationships are the signal &mdash;
+          not just the schema.
+        </p>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; max-width: 960px; margin: 0 auto;">
+          <div style="padding: 20px; background: #111; border: 1px solid #222; border-radius: 10px;">
+            <div style="font-size: 1.5rem; margin-bottom: 8px;">&#x1F6E1;</div>
+            <h4 style="color: #fff; margin-bottom: 6px;">Relationship Intelligence</h4>
+            <p style="color: #888; font-size: 0.85rem; line-height: 1.6;">Fraud rings, sanctions networks, money laundering chains. Follow relationships through billions of edges in seconds, not hours.</p>
+          </div>
+          <div style="padding: 20px; background: #111; border: 1px solid #222; border-radius: 10px;">
+            <div style="font-size: 1.5rem; margin-bottom: 8px;">&#x1F9E0;</div>
+            <h4 style="color: #fff; margin-bottom: 6px;">Graph AI &amp; Memory</h4>
+            <p style="color: #888; font-size: 0.85rem; line-height: 1.6;">AI knowledge graphs, agent memory, RAG with graph context. Native vector embeddings via EMBED() alongside graph traversal.</p>
+          </div>
+          <div style="padding: 20px; background: #111; border: 1px solid #222; border-radius: 10px;">
+            <div style="font-size: 1.5rem; margin-bottom: 8px;">&#x1F310;</div>
+            <h4 style="color: #fff; margin-bottom: 6px;">Geospatial Intelligence</h4>
+            <p style="color: #888; font-size: 0.85rem; line-height: 1.6;">Infrastructure telemetry, supply chain dependencies, logistics networks. Graph + geo + vector in one query.</p>
+          </div>
+          <div style="padding: 20px; background: #111; border: 1px solid #222; border-radius: 10px;">
+            <div style="font-size: 1.5rem; margin-bottom: 8px;">&#x1F50D;</div>
+            <h4 style="color: #fff; margin-bottom: 6px;">Cyber Threat Detection</h4>
+            <p style="color: #888; font-size: 0.85rem; line-height: 1.6;">Lateral movement tracing, attack path analysis, IOC correlation. Full path context in milliseconds, not alert fragments.</p>
+          </div>
+          <div style="padding: 20px; background: #111; border: 1px solid #222; border-radius: 10px;">
+            <div style="font-size: 1.5rem; margin-bottom: 8px;">&#x1F3E5;</div>
+            <h4 style="color: #fff; margin-bottom: 6px;">Healthcare &amp; Life Sciences</h4>
+            <p style="color: #888; font-size: 0.85rem; line-height: 1.6;">Referral networks, drug interaction graphs, patient pathway analysis. HIPAA-ready with per-tenant encryption.</p>
+          </div>
+          <div style="padding: 20px; background: #111; border: 1px solid #222; border-radius: 10px;">
+            <div style="font-size: 1.5rem; margin-bottom: 8px;">&#x1F680;</div>
+            <h4 style="color: #fff; margin-bottom: 6px;">Operational Graph Analytics</h4>
+            <p style="color: #888; font-size: 0.85rem; line-height: 1.6;">Real-time community detection, influence propagation, centrality monitoring. GPU-accelerated analytics on live data.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================== ARCHITECTURE ============================== -->
+    <section class="why-section" id="architecture">
+      <div class="container">
+        <div class="section-line" aria-hidden="true"></div>
+        <h2 class="section-title">Architecture at a <span class="gradient-text">Glance</span></h2>
+        <p class="section-subtitle">
+          Why xrayGraphDB survives workloads that crash other systems.
+        </p>
+
+        <div style="max-width: 600px; margin: 0 auto; font-size: 0.9rem;">
+          <style>
+            .arch-row { display: flex; align-items: center; margin: 6px 0; }
+            .arch-box { flex: 1; padding: 14px 20px; border-radius: 8px; text-align: center; font-weight: 600; }
+            .arch-arrow { text-align: center; color: #444; font-size: 1.2rem; padding: 2px 0; }
+          </style>
+
+          <div class="arch-row">
+            <div class="arch-box" style="background: linear-gradient(135deg, #1a0a00, #331a00); border: 1px solid #ff6b00; color: #ff6b00;">
+              Cypher &middot; GFQL &middot; xrayProtocol &middot; Bolt v5
+            </div>
+          </div>
+          <div class="arch-arrow">&darr;</div>
+          <div class="arch-row">
+            <div class="arch-box" style="background: linear-gradient(135deg, #0a0a1a, #111133); border: 1px solid #4466ff; color: #6688ff;">
+              Patent-Pending Execution Engine
+            </div>
+          </div>
+          <div class="arch-arrow">&darr;</div>
+          <div class="arch-row" style="gap: 8px;">
+            <div class="arch-box" style="background: #111; border: 1px solid #333; color: #ccc; font-size: 0.8rem;">
+              GPU Compute<br><span style="color:#76b900;">CUDA kernels</span>
+            </div>
+            <div class="arch-box" style="background: #111; border: 1px solid #333; color: #ccc; font-size: 0.8rem;">
+              CPU Analytics<br><span style="color:#888;">SIMD-accelerated</span>
+            </div>
+            <div class="arch-box" style="background: #111; border: 1px solid #333; color: #ccc; font-size: 0.8rem;">
+              Vector / Geo<br><span style="color:#9d6bff;">EMBED(), spatial</span>
+            </div>
+          </div>
+          <div class="arch-arrow">&darr;</div>
+          <div class="arch-row">
+            <div class="arch-box" style="background: linear-gradient(135deg, #0a1a0a, #113311); border: 1px solid #00ff88; color: #00ff88;">
+              Persistent Graph Store &middot; Patent-Pending Storage
+            </div>
+          </div>
+          <div class="arch-arrow">&darr;</div>
+          <div class="arch-row">
+            <div class="arch-box" style="background: linear-gradient(135deg, #1a0a0a, #331111); border: 1px solid #ff3333; color: #ff6666;">
+              &#x1F512; AES-256-GCM Per-Tenant Encryption &middot; Always On
+            </div>
+          </div>
+        </div>
+
+        <p style="text-align: center; color: #888; font-size: 0.8rem; margin-top: 20px; max-width: 600px; margin-left: auto; margin-right: auto;">
+          Every layer is original eMTAi engineering. The execution engine, storage layout, wire protocol,
+          and encryption architecture are all patent-pending. GPU acceleration falls back to CPU gracefully
+          when no GPU is available &mdash; same API, same results, different speed.
+        </p>
+      </div>
+    </section>
+
+    <!-- ============================== CTA ============================== -->
+    <section>
+      <div class="container">
+        <div class="cta-banner">
+          <h2>Convinced? <span class="gradient-text">Get Started Today.</span></h2>
+          <p>Community edition is free forever. Enterprise features unlock with a license key.</p>
+          <div style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;">
+            <a href="docs.html" class="btn btn-primary">Read the Docs</a>
+            <a href="benchmarks.html" class="btn btn-outline">See Benchmarks</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============================== FOOTER ============================== -->
+  <footer class="footer">
+    <div class="container footer-content">
+      <div class="footer-logo">xray<span>GraphDB</span></div>
+      <ul class="footer-links">
+        <li><a href="why.html">Why xrayGraphDB</a></li>
+        <li><a href="benchmarks.html">Benchmarks</a></li>
+        <li><a href="docs.html">Docs</a></li>
+        <li><a href="demos.html">Demos</a></li>
+        <li><a href="pricing.html">Pricing</a></li>
+        <li><a href="https://emtai-xray.emtailabs.com">License Portal</a></li>
+      </ul>
+      <p class="footer-text">&copy; 2026 eMTAi LLC. All rights reserved. Patent Pending.</p>
+      <p class="footer-text">xrayGraphDB is a product of eMTAi Labs.</p>
+    </div>
+  </footer>
+
+  <script src="router.js"></script>
+</body>
+</html>

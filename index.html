@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>xrayGraphDB - The AI-Native Vectorized Graph Database</title>
+  <meta name="description" content="xrayGraphDB is the AI-native vectorized graph database built for code intelligence. 0.2ms warm queries, 8,927 QPS pipelined, dual protocol, GFQL native.">
+  <meta name="keywords" content="graph database, vectorized, AI-native, code intelligence, GFQL, Cypher, xrayProtocol, Bolt">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="xrayGraphDB - The AI-Native Vectorized Graph Database">
+  <meta property="og:description" content="Built for code intelligence. 0.2ms warm queries, 8,927 QPS pipelined, dual protocol with GFQL native support.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://xraygraphdb.emtailabs.com">
+
+  <!-- Favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x1F9EC;</text></svg>">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ============================== NAV ============================== -->
+  <nav class="nav" role="navigation" aria-label="Main navigation">
+    <div class="container nav-inner">
+      <a href="index.html" class="nav-logo">xray<span>GraphDB</span></a>
+      <ul class="nav-links">
+        <li><a href="why.html">Why xrayGraphDB</a></li>
+        <li><a href="benchmarks.html">Benchmarks</a></li>
+        <li><a href="docs.html">Docs</a></li>
+        <li><a href="demos.html">Demos</a></li>
+        <li><a href="pricing.html">Pricing</a></li>
+        <li><a href="/llms-full.txt" title="Single-file AI-agent reference (plain text, optimized for LLMs to read end-to-end)" style="color:#00ff88; border:1px solid #00ff88; padding:4px 10px; border-radius:6px; font-weight:600;">&#x1F916; Point AI Here</a></li>
+        <li><a href="https://emtai-xray.emtailabs.com" class="nav-cta">Get Licensed</a></li>
+      </ul>
+      <button class="nav-toggle" aria-label="Toggle navigation menu" onclick="document.getElementById('mobile-menu').classList.toggle('open')">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="mobile-menu" class="nav-mobile">
+      <a href="why.html" onclick="this.parentElement.classList.remove('open')">Why xrayGraphDB</a>
+      <a href="benchmarks.html" onclick="this.parentElement.classList.remove('open')">Benchmarks</a>
+      <a href="docs.html" onclick="this.parentElement.classList.remove('open')">Docs</a>
+      <a href="demos.html" onclick="this.parentElement.classList.remove('open')">Demos</a>
+      <a href="pricing.html" onclick="this.parentElement.classList.remove('open')">Pricing</a>
+      <a href="/llms-full.txt" onclick="this.parentElement.classList.remove('open')" style="color:#00ff88; font-weight:600;">&#x1F916; Point AI Here</a>
+      <a href="https://emtai-xray.emtailabs.com">Get Licensed</a>
+    </div>
+  </nav>
+
+  <!-- ============================== MAIN CONTENT ============================== -->
+  <main id="page-content">
+
+    <!-- ============================== HERO ============================== -->
+    <section class="hero" id="hero">
+      <div class="hero-bg" aria-hidden="true"></div>
+      <div class="container hero-content">
+        <div class="hero-badge">
+          <span class="hero-badge-dot" aria-hidden="true"></span>
+          v4.9.4 BETA
+        </div>
+        <h1>xray<span class="gradient-text">GraphDB</span></h1>
+        <p class="hero-tagline" style="font-size: clamp(1.1rem, 2.5vw, 1.4rem); max-width: 700px; margin: 0 auto 16px;">
+          The GPU-accelerated relationship intelligence runtime for billion-edge graph workloads.
+        </p>
+        <p style="color: #aaa; font-size: 0.95rem; max-width: 600px; margin: 0 auto;">
+          Graph. Vector. Geo. Columnar. GPU. All encrypted, all on one server, all in production.
+        </p>
+        <div class="hero-buttons">
+          <a href="docs.html" class="btn btn-primary">Get Started</a>
+          <a href="https://emtai-xray.emtailabs.com" class="btn btn-outline">Get Licensed</a>
+        </div>
+        <div class="hero-stats-row" aria-label="Key performance indicators">
+          <div class="hero-stat">
+            <div class="hero-stat-value">3.6B</div>
+            <div class="hero-stat-label">Edges, one server<br><span style="color:#888;font-size:0.7em;">Friendster, Docker</span></div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-value">5.5s</div>
+            <div class="hero-stat-label">15-hop BFS<br><span style="color:#888;font-size:0.7em;">65.6M vertices reached</span></div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-value">8/8</div>
+            <div class="hero-stat-label">Algorithms completed<br><span style="color:#888;font-size:0.7em;">vs cuGraph 1/8</span></div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-value">AES-256</div>
+            <div class="hero-stat-label">Always-on encryption<br><span style="color:#888;font-size:0.7em;">Per-tenant, no off switch</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================== DOWNLOAD ============================== -->
+    <section class="perf-section" id="download">
+      <div class="container">
+        <div class="section-line" aria-hidden="true"></div>
+        <h2 class="section-title">Download <span class="gradient-text">v4.9.4</span></h2>
+        <p class="section-subtitle">
+          Free community edition. No registration required.
+        </p>
+        <div class="perf-grid">
+          <div class="perf-card">
+            <div class="perf-value" style="font-size: 1.4rem;">Docker</div>
+            <div class="perf-label">Recommended<br><a href="downloads.html#docker-instructions" style="color: var(--accent);">Pull image &rarr;</a></div>
+          </div>
+          <div class="perf-card">
+            <div class="perf-value" style="font-size: 1.4rem;">.deb</div>
+            <div class="perf-label">Ubuntu 24.04+<br><a href="/downloads/xraygraphdb_4.9.4_amd64.deb" style="color: var(--accent);">Download 10 MB &rarr;</a></div>
+          </div>
+          <div class="perf-card">
+            <div class="perf-value" style="font-size: 1.4rem;">.tar.gz</div>
+            <div class="perf-label">Generic Linux<br><a href="/downloads/xraygraphdb-4.9.4-linux-x86_64.tar.gz" style="color: var(--accent);">Download 21 MB &rarr;</a></div>
+          </div>
+          <div class="perf-card">
+            <div class="perf-value" style="font-size: 1.4rem;">Python</div>
+            <div class="perf-label">xgdb-connect<br><a href="downloads.html" style="color: var(--accent);">pip install &rarr;</a></div>
+          </div>
+        </div>
+        <div style="text-align: center; margin-top: 16px;">
+          <a href="downloads.html" class="btn btn-primary" style="font-size: 0.9rem; padding: 10px 24px;">All Downloads &rarr;</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================== TEASER CARDS ============================== -->
+    <section id="why-teasers">
+      <div class="container">
+        <div class="section-line" aria-hidden="true"></div>
+        <h2 class="section-title">Why <span class="gradient-text">xrayGraphDB</span></h2>
+        <p class="section-subtitle">
+          Three capabilities that no other graph database can match. Built from the ground up, not bolted on.
+        </p>
+        <div class="teaser-grid">
+          <a href="why.html#encryption" class="teaser-card">
+            <div class="teaser-icon green" aria-hidden="true">&#x1F512;</div>
+            <h3>Per-Tenant Encryption</h3>
+            <p>Each tenant gets its own cryptographic key. Not namespace filtering &mdash; real cryptographic isolation with multi-layered defense.</p>
+            <span class="teaser-link">Learn more &rarr;</span>
+          </a>
+          <a href="why.html#engine" class="teaser-card">
+            <div class="teaser-icon" aria-hidden="true">&#x26A1;</div>
+            <h3>Vectorized Engine</h3>
+            <p>Patent-pending vectorized execution engine with hardware acceleration, proprietary storage architecture, GPU compute dispatch, and zero GC pauses.</p>
+            <span class="teaser-link">Learn more &rarr;</span>
+          </a>
+          <a href="why.html#query" class="teaser-card">
+            <div class="teaser-icon purple" aria-hidden="true">&#x03BB;</div>
+            <h3>Dual Query Language</h3>
+            <p>Full Cypher with automatic Neo4j syntax rewrites plus GFQL as a first-class citizen. 26 native analytics procedures and EMBED() for vector operations. Patent pending.</p>
+            <span class="teaser-link">Learn more &rarr;</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================== DOCKER ONE-LINER ============================== -->
+    <section class="perf-section" id="quick-install">
+      <div class="container">
+        <div class="section-line" aria-hidden="true"></div>
+        <h2 class="section-title">Up and Running in <span class="gradient-text">30 Seconds</span></h2>
+        <p class="section-subtitle">
+          One command. Two protocols. Full engine.
+        </p>
+        <div class="docker-oneliner">
+          <div class="code-block">
+            <pre><span class="cmd">docker</span> run <span class="flag">-d</span> <span class="flag">--name</span> xraygraphdb \
+  <span class="flag">-p</span> <span class="num">7687</span>:<span class="num">7687</span> <span class="flag">-p</span> <span class="num">7689</span>:<span class="num">7689</span> \
+  <span class="flag">-e</span> XRAY_ADMIN_PASSWORD=<span class="str">your-secure-password</span> \
+  xraygraphdb:<span class="num">v4.9.4</span></pre>
+          </div>
+        </div>
+        <div style="text-align: center; margin-top: 20px;">
+          <a href="docs.html" class="btn btn-outline" style="font-size: 0.9rem; padding: 10px 24px;">View all install methods &rarr;</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================== PERFORMANCE ============================== -->
+    <section id="performance">
+      <div class="container">
+        <div class="section-line" aria-hidden="true"></div>
+        <h2 class="section-title">Performance That <span class="gradient-text">Matters</span></h2>
+        <p class="section-subtitle">
+          Patent-pending execution engine, proprietary wire protocol, and advanced memory architecture. Measured, not estimated.
+        </p>
+        <div class="perf-grid">
+          <div class="perf-card">
+            <div class="perf-value">0.2ms</div>
+            <div class="perf-label">Warm query latency<br>Cached plan path</div>
+          </div>
+          <div class="perf-card">
+            <div class="perf-value">8,927</div>
+            <div class="perf-label">Queries per second<br>Pipelined throughput</div>
+          </div>
+          <div class="perf-card">
+            <div class="perf-value">24x</div>
+            <div class="perf-label">Faster than Bolt<br>xrayProtocol (patent pending)</div>
+          </div>
+          <div class="perf-card">
+            <div class="perf-value">100K+</div>
+            <div class="perf-label">Nodes per second<br>Bulk create throughput</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================== CTA BANNER ============================== -->
+    <section id="cta">
+      <div class="container">
+        <div class="cta-banner">
+          <h2>Ready to Scale Your <span class="gradient-text">Graph Intelligence</span>?</h2>
+          <p>Unlock per-tenant encryption, native code analyzers, HA clustering, RBAC, and priority support.</p>
+          <div style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;">
+            <a href="https://emtai-xray.emtailabs.com" class="btn btn-primary">Get Licensed</a>
+            <a href="pricing.html" class="btn btn-outline">View Pricing</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============================== FOOTER ============================== -->
+  <footer class="footer">
+    <div class="container footer-content">
+      <div class="footer-logo">xray<span>GraphDB</span></div>
+      <ul class="footer-links">
+        <li><a href="why.html">Why xrayGraphDB</a></li>
+        <li><a href="benchmarks.html">Benchmarks</a></li>
+        <li><a href="docs.html">Docs</a></li>
+        <li><a href="demos.html">Demos</a></li>
+        <li><a href="pricing.html">Pricing</a></li>
+        <li><a href="https://emtai-xray.emtailabs.com">License Portal</a></li>
+      </ul>
+      <p class="footer-text">&copy; 2026 eMTAi LLC. All rights reserved. Patent Pending.</p>
+      <p class="footer-text">xrayGraphDB is a product of eMTAi Labs.</p>
+    </div>
+  </footer>
+
+  <script src="router.js"></script>
+</body>
+</html>
