@@ -1,0 +1,68 @@
+{
+  "benchmark": "prod_187",
+  "results": {
+    "return1_p50_ms": 0.469,
+    "hop_by_hop_s": 10.195,
+    "bfs_median_teps": 312258777.13591367,
+    "pagerank_20_iter_cold": {
+      "elapsed_s": 247.165,
+      "result": "65608366"
+    },
+    "pagerank_20_iter_warm1": {
+      "elapsed_s": 237.336,
+      "result": "65608366"
+    },
+    "pagerank_20_iter_warm2": {
+      "elapsed_s": 247.746,
+      "result": "65608366"
+    },
+    "triangle_count_cold": {
+      "elapsed_s": 146.06,
+      "result": "4173724142"
+    },
+    "triangle_count_warm1": {
+      "elapsed_s": 150.926,
+      "result": "4173724142"
+    },
+    "triangle_count_warm2": {
+      "elapsed_s": 150.49,
+      "result": "4173724142"
+    },
+    "connected_components_cold": {
+      "elapsed_s": 81.939,
+      "result": "0"
+    },
+    "connected_components_warm1": {
+      "elapsed_s": 81.875,
+      "result": "0"
+    },
+    "connected_components_warm2": {
+      "elapsed_s": 81.632,
+      "result": "0"
+    },
+    "k-core_cold": {
+      "elapsed_s": 129.739,
+      "result": "304"
+    },
+    "k-core_warm1": {
+      "elapsed_s": 129.865,
+      "result": "304"
+    },
+    "k-core_warm2": {
+      "elapsed_s": 130.31,
+      "result": "304"
+    },
+    "community_20_iter_cold": {
+      "elapsed_s": 225.097,
+      "result": "65608366"
+    },
+    "community_20_iter_warm1": {
+      "elapsed_s": 221.205,
+      "result": "65608366"
+    },
+    "community_20_iter_warm2": {
+      "elapsed_s": 223.473,
+      "result": "65608366"
+    }
+  }
+}
