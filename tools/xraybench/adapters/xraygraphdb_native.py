@@ -97,6 +97,7 @@ class XrayGraphDBNativeAdapter(BaseAdapter):
         username: str = config.get("username", "admin")
         password: str = config.get("password", "admin")
         capabilities: int = int(config.get("capabilities", 0))
+        database: str = config.get("database", "")
 
         try:
             self._client = XrayProtocolClient(
@@ -108,6 +109,7 @@ class XrayGraphDBNativeAdapter(BaseAdapter):
                 username=username,
                 password=password,
                 capabilities=capabilities,
+                database=database,
             )
             self._protocol_overhead_ms = (perf_counter() - start) * 1000.0
 

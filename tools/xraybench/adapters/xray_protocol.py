@@ -114,6 +114,7 @@ class XrayProtocolClient:
         username: str = "",
         password: str = "",
         capabilities: int = 0,
+        database: str = "",
     ) -> tuple[int, int, str]:
         """TCP connect + HELLO handshake.
 
@@ -136,11 +137,14 @@ class XrayProtocolClient:
         auth_token = f"{username}:{password}".encode("utf-8")
         payload = struct.pack(
             "<HHI",
-            1,  # protocol_version
+            2,  # protocol_version (v2 — current wire; query surfaces compatible)
             capabilities,
             len(auth_token),
         )
         payload += auth_token
+        # v2: the database field is MANDATORY — the server rejects HELLO without it.
+        db_bytes = database.encode("utf-8")
+        payload += struct.pack("<I", len(db_bytes)) + db_bytes
 
         self._send_frame(MSG_HELLO, 0, payload)
 
@@ -312,9 +316,83 @@ class XrayProtocolClient:
         if msg_type == 0x26:  # ERROR
             err = self._decode_error(resp)
             raise XrayProtocolError(f"BULK_INSERT_EDGES error: {err['message']}")
-        if msg_type == 0x25:  # ACK
-            edges_created = struct.unpack_from("<I", resp, 4)[0]
-            time_ms = struct.unpack_from("<I", resp, 8)[0]
+        if msg_type == 0x25:  # ACK: [u32 count][f64 ms]
+            edges_created = struct.unpack_from("<I", resp, 0)[0]
+            time_ms = int(struct.unpack_from("<d", resp, 4)[0])
+            return (edges_created, time_ms)
+        return (0, 0)
+
+    def bulk_insert_edges_keyed(
+        self,
+        left_label: str,
+        left_key: str,
+        right_label: str,
+        right_key: str,
+        edge_type: str,
+        edges: list[dict[str, Any]],
+        prop_names: list[str] | None = None,
+    ) -> tuple[int, int]:
+        """Send BULK_INSERT_EDGES_KEYED (0x30) batch.
+
+        Generalizes 0x22: endpoints are matched by an explicit per-batch
+        key property (left_label.left_key / right_label.right_key) instead
+        of the hardcoded "fnid". Both (label, key) pairs MUST have a
+        property index — bulk_upsert_nodes auto-creates one on the key col.
+
+        Each edge dict supplies 'from' (left key value) and 'to' (right
+        key value), plus any property values matching prop_names. Endpoint
+        key values are normalized to str(int(v)) to match the node-upsert
+        key encoding so the string-typed index probe resolves.
+
+        Returns (edges_created, time_ms).
+        """
+        if not edges:
+            return (0, 0)
+
+        prop_names = prop_names or []
+        edge_count = len(edges)
+        prop_count = len(prop_names)
+
+        def write_string(b: bytearray, s: Any) -> None:
+            sb = str(s).encode("utf-8")
+            b += struct.pack("<I", len(sb))
+            b += sb
+
+        def norm_key(v: Any) -> str:
+            # Match the node-upsert key encoding str(int(id)) (no leading
+            # zeros / decimals). LDBC ids are integers; fall back to the raw
+            # string for any non-numeric key.
+            try:
+                return str(int(v))
+            except (TypeError, ValueError):
+                return str(v)
+
+        payload = bytearray()
+        # Header: left_label, left_key, right_label, right_key, edge_type
+        write_string(payload, left_label)
+        write_string(payload, left_key)
+        write_string(payload, right_label)
+        write_string(payload, right_key)
+        write_string(payload, edge_type)
+        payload += struct.pack("<II", edge_count, prop_count)
+        for pn in prop_names:
+            write_string(payload, pn)
+        # Per-edge body: left_key_value, right_key_value, [prop_values]
+        for edge in edges:
+            write_string(payload, norm_key(edge["from"]))
+            write_string(payload, norm_key(edge["to"]))
+            for pn in prop_names:
+                write_string(payload, str(edge.get(pn, "")))
+
+        self._send_frame(0x30, 0, bytes(payload))
+        msg_type, _, _, resp = self._recv_frame()
+        if msg_type == 0x26:  # ERROR
+            err = self._decode_error(resp)
+            raise XrayProtocolError(
+                f"BULK_INSERT_EDGES_KEYED error: {err['message']}")
+        if msg_type == 0x25 and len(resp) >= 12:  # ACK: [u32 count][f64 ms]
+            edges_created = struct.unpack_from("<I", resp, 0)[0]
+            time_ms = int(struct.unpack_from("<d", resp, 4)[0])
             return (edges_created, time_ms)
         return (0, 0)
 

@@ -32,12 +32,16 @@ def main():
     parser.add_argument("--sf", required=True, choices=["sf1", "sf10"])
     parser.add_argument("--host", default="localhost")
     parser.add_argument("--port", type=int, default=7689)
+    parser.add_argument("--username", default="")
+    parser.add_argument("--password", default="")
+    parser.add_argument("--database", default="")
+    parser.add_argument("--base", default="")
     args = parser.parse_args()
 
-    base = f"/opt/ldbc-snb/{args.sf}/social_network-{args.sf}-CsvCompositeMergeForeign-LongDateFormatter"
+    base = args.base or f"/opt/ldbc-snb/{args.sf}/social_network-{args.sf}-CsvCompositeMergeForeign-LongDateFormatter"
 
     client = XrayProtocolClient(args.host, args.port, timeout=300.0)
-    ver, caps, info = client.connect()
+    ver, caps, info = client.connect(username=args.username, password=args.password, database=args.database)
     print(f"Connected: {info} (v{ver}, caps={caps:#x})")
 
     t_start = time.time()
@@ -96,36 +100,40 @@ def main():
     # === EDGES from CSV files ===
     print("\n=== RELATIONSHIPS ===")
 
+    # (csv_file, positional, left_label, right_label, edge_type, transform)
+    # Endpoints are matched by <label>.id via the 0x30 keyed bulk-edge opcode
+    # (the index bulk_upsert_nodes auto-created). The legacy 0x22 opcode would
+    # silently drop every edge — it resolves endpoints by "fnid" only.
     edge_files = [
-        ("dynamic/person_knows_person_0_0.csv", True,  # positional
-         lambda r: {"from": r[0], "to": r[1], "type": "KNOWS", "creationDate": r[2]}),
-        ("dynamic/person_hasInterest_tag_0_0.csv", False,
-         lambda r: {"from": r["Person.id"], "to": r["Tag.id"], "type": "HAS_INTEREST"}),
-        ("dynamic/person_studyAt_organisation_0_0.csv", False,
-         lambda r: {"from": r["Person.id"], "to": r["Organisation.id"], "type": "STUDY_AT",
+        ("dynamic/person_knows_person_0_0.csv", True, "Person", "Person", "KNOWS",
+         lambda r: {"from": r[0], "to": r[1], "creationDate": r[2]}),
+        ("dynamic/person_hasInterest_tag_0_0.csv", False, "Person", "Tag", "HAS_INTEREST",
+         lambda r: {"from": r["Person.id"], "to": r["Tag.id"]}),
+        ("dynamic/person_studyAt_organisation_0_0.csv", False, "Person", "Organisation", "STUDY_AT",
+         lambda r: {"from": r["Person.id"], "to": r["Organisation.id"],
                      "classYear": r["classYear"]}),
-        ("dynamic/person_workAt_organisation_0_0.csv", False,
-         lambda r: {"from": r["Person.id"], "to": r["Organisation.id"], "type": "WORK_AT",
+        ("dynamic/person_workAt_organisation_0_0.csv", False, "Person", "Organisation", "WORK_AT",
+         lambda r: {"from": r["Person.id"], "to": r["Organisation.id"],
                      "workFrom": r["workFrom"]}),
-        ("dynamic/person_likes_post_0_0.csv", False,
-         lambda r: {"from": r["Person.id"], "to": r["Post.id"], "type": "LIKES",
+        ("dynamic/person_likes_post_0_0.csv", False, "Person", "Post", "LIKES",
+         lambda r: {"from": r["Person.id"], "to": r["Post.id"],
                      "creationDate": r["creationDate"]}),
-        ("dynamic/person_likes_comment_0_0.csv", False,
-         lambda r: {"from": r["Person.id"], "to": r["Comment.id"], "type": "LIKES",
+        ("dynamic/person_likes_comment_0_0.csv", False, "Person", "Comment", "LIKES",
+         lambda r: {"from": r["Person.id"], "to": r["Comment.id"],
                      "creationDate": r["creationDate"]}),
-        ("dynamic/forum_hasMember_person_0_0.csv", False,
-         lambda r: {"from": r["Forum.id"], "to": r["Person.id"], "type": "HAS_MEMBER",
+        ("dynamic/forum_hasMember_person_0_0.csv", False, "Forum", "Person", "HAS_MEMBER",
+         lambda r: {"from": r["Forum.id"], "to": r["Person.id"],
                      "joinDate": r["joinDate"]}),
-        ("dynamic/forum_hasTag_tag_0_0.csv", False,
-         lambda r: {"from": r["Forum.id"], "to": r["Tag.id"], "type": "HAS_TAG"}),
-        ("dynamic/post_hasTag_tag_0_0.csv", False,
-         lambda r: {"from": r["Post.id"], "to": r["Tag.id"], "type": "HAS_TAG"}),
-        ("dynamic/comment_hasTag_tag_0_0.csv", False,
-         lambda r: {"from": r["Comment.id"], "to": r["Tag.id"], "type": "HAS_TAG"}),
+        ("dynamic/forum_hasTag_tag_0_0.csv", False, "Forum", "Tag", "HAS_TAG",
+         lambda r: {"from": r["Forum.id"], "to": r["Tag.id"]}),
+        ("dynamic/post_hasTag_tag_0_0.csv", False, "Post", "Tag", "HAS_TAG",
+         lambda r: {"from": r["Post.id"], "to": r["Tag.id"]}),
+        ("dynamic/comment_hasTag_tag_0_0.csv", False, "Comment", "Tag", "HAS_TAG",
+         lambda r: {"from": r["Comment.id"], "to": r["Tag.id"]}),
     ]
 
     edge_batch = 2000
-    for csv_file, positional, transform in edge_files:
+    for csv_file, positional, left_label, right_label, edge_type, transform in edge_files:
         t0 = time.time()
         label = csv_file.split("/")[-1].replace("_0_0.csv", "")
         if positional:
@@ -140,7 +148,8 @@ def main():
         total = 0
         for i in range(0, len(data), edge_batch):
             batch = data[i:i + edge_batch]
-            e, ms = client.bulk_insert_edges(batch, prop_names)
+            e, ms = client.bulk_insert_edges_keyed(
+                left_label, "id", right_label, "id", edge_type, batch, prop_names)
             total += e
             if total % 50000 < edge_batch and total > edge_batch:
                 elapsed = time.time() - t0
