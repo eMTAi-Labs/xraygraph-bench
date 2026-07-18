@@ -43,6 +43,41 @@ COL_DOUBLE = 0x04
 COL_STRING = 0x05
 COL_LIST = 0x06
 COL_MAP = 0x07
+COL_NODE = 0x08
+COL_RELATIONSHIP = 0x09
+COL_PATH = 0x0A
+COL_BYTES = 0x0B
+# Temporal / spatial — variable-width offset+blob columns (NOT fixed-width;
+# the engine's IsComplexType_ routes 0x0C-0x12 through the offset+blob path,
+# each cell body = the recursive-Value body for that tag).
+COL_DATE = 0x0C
+COL_LOCAL_TIME = 0x0D
+COL_LOCAL_DATE_TIME = 0x0E
+COL_ZONED_DATE_TIME = 0x0F
+COL_DURATION = 0x10
+COL_POINT_2D = 0x11
+COL_POINT_3D = 0x12
+
+# Column types whose body is [u32 blob_size][u32 offsets[row_count+1]][blob]
+# with each cell decoded by a per-type body reader (shared with the recursive
+# Value decoder). Same outer envelope as STRING.
+_OFFSETBLOB_COL_TYPES = frozenset(
+    {
+        COL_LIST,
+        COL_MAP,
+        COL_NODE,
+        COL_RELATIONSHIP,
+        COL_PATH,
+        COL_BYTES,
+        COL_DATE,
+        COL_LOCAL_TIME,
+        COL_LOCAL_DATE_TIME,
+        COL_ZONED_DATE_TIME,
+        COL_DURATION,
+        COL_POINT_2D,
+        COL_POINT_3D,
+    }
+)
 
 # ---------------------------------------------------------------------------
 # Capability bits
@@ -707,18 +742,23 @@ class XrayProtocolClient:
             return self._decode_string_column(payload, offset, row_count)
         elif col_type == COL_NULL:
             return self._decode_null_column(payload, offset, row_count)
+        elif col_type in _OFFSETBLOB_COL_TYPES:
+            # NODE/REL/PATH/LIST/MAP/BYTES/temporal — variable-width columns
+            # sharing the STRING envelope; each cell has a per-type body.
+            return self._decode_offsetblob_column(
+                payload, offset, row_count, _CELL_READERS[col_type]
+            )
         else:
-            # Unknown column type — skip data_length bytes + null bitmap
-            (data_length,) = struct.unpack_from("<I", payload, offset)
-            offset += 4
-            # Align to 8 bytes
-            padding = (8 - (offset % 8)) % 8
-            offset += padding
-            offset += data_length
-            # Null bitmap
-            bitmap_len = math.ceil(row_count / 8)
-            offset += bitmap_len
-            return ([None] * row_count, offset)
+            # A correctness-validation harness must NEVER silently return None
+            # for an unknown column (that is the exact P0 this decoder fixes):
+            # a CAP_TYPED_NESTED (0x13-0x1A) or CAP_DICT_ENCODING column, or a
+            # future tag, would validate benchmark results against nothing.
+            # Fail loudly instead. Extend the client if this fires.
+            raise XrayProtocolError(
+                f"xrayProtocol: unhandled column type 0x{col_type:02X} — "
+                f"the client decoder must be extended (did the connection "
+                f"negotiate CAP_TYPED_NESTED / CAP_DICT_ENCODING?)."
+            )
 
     def _decode_int64_column(
         self, payload: bytes, offset: int, row_count: int
@@ -868,6 +908,76 @@ class XrayProtocolClient:
 
         return ([None] * row_count, offset)
 
+    def _decode_offsetblob_column(
+        self,
+        payload: bytes,
+        offset: int,
+        row_count: int,
+        cell_reader: Any,
+    ) -> tuple[list[Any], int]:
+        """Decode a variable-width column (NODE/REL/PATH/LIST/MAP/BYTES/temporal).
+
+        Outer envelope is byte-identical to STRING (confirmed against the
+        engine encoder.hpp / executor_bridge.hpp complex-column writer):
+
+            u32 data_length
+            <pad current offset up to a multiple of 8>
+            u32 blob_size
+            u32 offsets[row_count + 1]
+            blob[blob_size]
+            u8[ceil(row_count/8)] null_bitmap
+
+        A null (or empty) row is a ZERO-LENGTH cell
+        (``offsets[r] == offsets[r+1]``) — it decodes to ``None`` WITHOUT
+        invoking ``cell_reader`` (an empty slice would crash the i64/u32
+        reads). ``cell_reader(cell_bytes) -> (value, consumed)`` must consume
+        EXACTLY ``len(cell_bytes)``; a mismatch means a field-width drift vs
+        the engine and is raised loudly rather than silently dropping bytes.
+
+        Advancement is always ``data_start + data_length`` then the bitmap —
+        never derived from the parsed body — so a decode error in one cell
+        can never desync the following columns.
+        """
+        (data_length,) = struct.unpack_from("<I", payload, offset)
+        offset += 4
+        padding = (8 - (offset % 8)) % 8
+        offset += padding
+        data_start = offset
+
+        (_blob_size,) = struct.unpack_from("<I", payload, offset)
+        offset += 4
+        offsets: list[int] = []
+        for _ in range(row_count + 1):
+            (o,) = struct.unpack_from("<I", payload, offset)
+            offsets.append(o)
+            offset += 4
+
+        blob_start = offset
+        values: list[Any] = []
+        for r in range(row_count):
+            start = offsets[r]
+            end = offsets[r + 1]
+            if start == end:
+                values.append(None)  # null / empty cell — masked by bitmap
+                continue
+            cell = payload[blob_start + start : blob_start + end]
+            value, consumed = cell_reader(cell)
+            if consumed != len(cell):
+                raise XrayProtocolError(
+                    f"xrayProtocol: cell decoder consumed {consumed} of "
+                    f"{len(cell)} bytes at row {r} — field-width drift."
+                )
+            values.append(value)
+
+        # Advance past the whole column body, then the null bitmap.
+        offset = data_start + data_length
+        bitmap_len = math.ceil(row_count / 8)
+        bitmap = payload[offset : offset + bitmap_len]
+        offset += bitmap_len
+
+        values = _apply_null_bitmap(values, bitmap, row_count)
+        return (values, offset)
+
     def _decode_error(self, payload: bytes) -> dict[str, Any]:
         """Decode an ERROR payload.
 
@@ -937,6 +1047,218 @@ def _apply_null_bitmap(
         else:
             result.append(None)
     return result
+
+
+# ---------------------------------------------------------------------------
+# Complex-cell body decoders (NODE / RELATIONSHIP / PATH / LIST / MAP / BYTES /
+# temporal) and the recursive tagged Value decoder.
+#
+# Ground truth: engine SSOT src/communication/xray/{executor_bridge,encoder,
+# protocol}.hpp on .187. Each returns (value, new_index).  "Body" readers
+# decode a cell that carries NO leading type tag (the column type or the
+# recursive-Value tag already selected the shape).  _read_value decodes a
+# TAGGED value (u8 tag + body) and is used for node/rel property values and
+# list/map elements.
+#
+# Width contract (verified byte-for-byte against the encoder):
+#   id / start / end        i64 LE (signed, WriteI64)
+#   label / type / key len  u16 LE (WriteString)
+#   all counts / offsets    u32 LE
+#   recursive STRING len    u32 LE (WriteLongString)
+#   PATH seq step           i32 LE (signed, 1-based; <0 = reverse)
+# ---------------------------------------------------------------------------
+
+
+def _read_string_short(buf: bytes, i: int) -> tuple[str, int]:
+    """u16 LE length + UTF-8 bytes (engine WriteString)."""
+    (n,) = struct.unpack_from("<H", buf, i)
+    i += 2
+    return (buf[i : i + n].decode("utf-8"), i + n)
+
+
+def _read_bytes_body(buf: bytes, i: int) -> tuple[bytes, int]:
+    """u32 LE length + raw octets (BYTES 0x0B).
+
+    SPECULATIVE: there is no BYTES arm in the engine's EncodeTypedValueBody,
+    so the server does not emit this on the columnar path today — this branch
+    is spec-correct but cannot be validated against a live engine.
+    """
+    (n,) = struct.unpack_from("<I", buf, i)
+    i += 4
+    return (bytes(buf[i : i + n]), i + n)
+
+
+def _read_node_body(buf: bytes, i: int) -> tuple[dict[str, Any], int]:
+    (gid,) = struct.unpack_from("<q", buf, i)
+    i += 8
+    (label_count,) = struct.unpack_from("<I", buf, i)
+    i += 4
+    labels: list[str] = []
+    for _ in range(label_count):
+        lbl, i = _read_string_short(buf, i)
+        labels.append(lbl)
+    (prop_count,) = struct.unpack_from("<I", buf, i)
+    i += 4
+    props: dict[str, Any] = {}
+    for _ in range(prop_count):
+        key, i = _read_string_short(buf, i)
+        val, i = _read_value(buf, i)
+        props[key] = val
+    return ({"id": gid, "labels": labels, "properties": props}, i)
+
+
+def _read_rel_body(buf: bytes, i: int) -> tuple[dict[str, Any], int]:
+    rid, start, end = struct.unpack_from("<qqq", buf, i)
+    i += 24
+    rtype, i = _read_string_short(buf, i)
+    (prop_count,) = struct.unpack_from("<I", buf, i)
+    i += 4
+    props: dict[str, Any] = {}
+    for _ in range(prop_count):
+        key, i = _read_string_short(buf, i)
+        val, i = _read_value(buf, i)
+        props[key] = val
+    return (
+        {"id": rid, "start": start, "end": end, "type": rtype, "properties": props},
+        i,
+    )
+
+
+def _read_path_body(buf: bytes, i: int) -> tuple[dict[str, Any], int]:
+    (node_count,) = struct.unpack_from("<I", buf, i)
+    i += 4
+    nodes: list[Any] = []
+    for _ in range(node_count):
+        node, i = _read_node_body(buf, i)
+        nodes.append(node)
+    (rel_count,) = struct.unpack_from("<I", buf, i)
+    i += 4
+    rels: list[Any] = []
+    for _ in range(rel_count):
+        rel, i = _read_rel_body(buf, i)
+        rels.append(rel)
+    (seq_count,) = struct.unpack_from("<I", buf, i)
+    i += 4
+    seq: list[int] = []
+    for _ in range(seq_count):
+        (step,) = struct.unpack_from("<i", buf, i)
+        i += 4
+        seq.append(step)
+    return ({"nodes": nodes, "relationships": rels, "sequence": seq}, i)
+
+
+def _read_list_body(buf: bytes, i: int) -> tuple[list[Any], int]:
+    (count,) = struct.unpack_from("<I", buf, i)
+    i += 4
+    out: list[Any] = []
+    for _ in range(count):
+        val, i = _read_value(buf, i)
+        out.append(val)
+    return (out, i)
+
+
+def _read_map_body(buf: bytes, i: int) -> tuple[dict[str, Any], int]:
+    (count,) = struct.unpack_from("<I", buf, i)
+    i += 4
+    out: dict[str, Any] = {}
+    for _ in range(count):
+        key, i = _read_string_short(buf, i)
+        val, i = _read_value(buf, i)
+        out[key] = val
+    return (out, i)
+
+
+def _read_value(buf: bytes, i: int) -> tuple[Any, int]:
+    """Recursive tagged Value: u8 type_tag + body. Returns (value, new_index).
+
+    XNULL (0x01) has NO body — return None and consume only the tag byte
+    (Graph/Function/Enum also map to XNULL on the wire).
+    """
+    tag = buf[i]
+    i += 1
+    if tag == COL_NULL:  # 0x01 — no body
+        return (None, i)
+    if tag == COL_BOOL:  # 0x02
+        return (buf[i] != 0, i + 1)
+    if tag == COL_INT64:  # 0x03
+        (v,) = struct.unpack_from("<q", buf, i)
+        return (v, i + 8)
+    if tag == COL_DOUBLE:  # 0x04
+        (v,) = struct.unpack_from("<d", buf, i)
+        return (v, i + 8)
+    if tag == COL_STRING:  # 0x05 — recursive LongString (u32 len + bytes)
+        (n,) = struct.unpack_from("<I", buf, i)
+        i += 4
+        return (buf[i : i + n].decode("utf-8"), i + n)
+    if tag == COL_LIST:  # 0x06
+        return _read_list_body(buf, i)
+    if tag == COL_MAP:  # 0x07
+        return _read_map_body(buf, i)
+    if tag == COL_NODE:  # 0x08
+        return _read_node_body(buf, i)
+    if tag == COL_RELATIONSHIP:  # 0x09
+        return _read_rel_body(buf, i)
+    if tag == COL_PATH:  # 0x0A
+        return _read_path_body(buf, i)
+    if tag == COL_BYTES:  # 0x0B
+        return _read_bytes_body(buf, i)
+    if tag == COL_DATE:  # 0x0C — i64 days
+        (v,) = struct.unpack_from("<q", buf, i)
+        return (v, i + 8)
+    if tag == COL_LOCAL_TIME:  # 0x0D — i64 ns
+        (v,) = struct.unpack_from("<q", buf, i)
+        return (v, i + 8)
+    if tag == COL_LOCAL_DATE_TIME:  # 0x0E — i64 epoch_s + i32 ns
+        s, ns = struct.unpack_from("<qi", buf, i)
+        return ((s, ns), i + 12)
+    if tag == COL_ZONED_DATE_TIME:  # 0x0F — i64 epoch_s + i32 ns + i32 tz_off_s
+        s, ns, tz = struct.unpack_from("<qii", buf, i)
+        return ((s, ns, tz), i + 16)
+    if tag == COL_DURATION:  # 0x10 — i64 total_s + i64 ns
+        s, ns = struct.unpack_from("<qq", buf, i)
+        return ((s, ns), i + 16)
+    if tag == COL_POINT_2D:  # 0x11 — i32 srid + f64 x + f64 y
+        srid, x, y = struct.unpack_from("<idd", buf, i)
+        return ((srid, x, y), i + 20)
+    if tag == COL_POINT_3D:  # 0x12 — i32 srid + f64 x + f64 y + f64 z
+        srid, x, y, z = struct.unpack_from("<iddd", buf, i)
+        return ((srid, x, y, z), i + 28)
+    raise XrayProtocolError(
+        f"xrayProtocol: unhandled recursive Value tag 0x{tag:02X}"
+    )
+
+
+def _temporal_reader(fmt: str, size: int) -> Any:
+    """Build a column cell reader for a fixed-layout temporal/spatial body
+    (no tag, no inner length). Returns the scalar for single-field forms and
+    a tuple otherwise; always reports ``size`` bytes consumed.
+    """
+
+    def read(cell: bytes) -> tuple[Any, int]:
+        vals = struct.unpack_from(fmt, cell, 0)
+        return (vals[0] if len(vals) == 1 else vals, size)
+
+    return read
+
+
+# Column-type → cell body reader. Each reader takes the raw cell bytes and
+# returns (value, consumed); _decode_offsetblob_column asserts consumed ==
+# len(cell). LIST/MAP/NODE/REL/PATH/BYTES bodies start at index 0.
+_CELL_READERS: dict[int, Any] = {
+    COL_LIST: lambda c: _read_list_body(c, 0),
+    COL_MAP: lambda c: _read_map_body(c, 0),
+    COL_NODE: lambda c: _read_node_body(c, 0),
+    COL_RELATIONSHIP: lambda c: _read_rel_body(c, 0),
+    COL_PATH: lambda c: _read_path_body(c, 0),
+    COL_BYTES: lambda c: _read_bytes_body(c, 0),
+    COL_DATE: _temporal_reader("<q", 8),
+    COL_LOCAL_TIME: _temporal_reader("<q", 8),
+    COL_LOCAL_DATE_TIME: _temporal_reader("<qi", 12),
+    COL_ZONED_DATE_TIME: _temporal_reader("<qii", 16),
+    COL_DURATION: _temporal_reader("<qq", 16),
+    COL_POINT_2D: _temporal_reader("<idd", 20),
+    COL_POINT_3D: _temporal_reader("<iddd", 28),
+}
 
 
 def encode_hello_payload(
